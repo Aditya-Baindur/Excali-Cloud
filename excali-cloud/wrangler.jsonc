@@ -1,0 +1,39 @@
+/**
+ * wrangler.jsonc
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "excali-cloud",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-09-27",
+	"observability": {
+		"enabled": true
+	},
+	// Deploy worker at a separate hostname (recommended) OR use routes on your main domain.
+	// Example option A (separate hostname):
+	// "workers_dev": true,
+	//
+	// Example option B (custom domain route):
+	// "routes": [
+	//   { "pattern": "api.adityabaindur.dev/*", "zone_name": "adityabaindur.dev" }
+	// ],
+	"vars": {
+		// In MVP we use a header x-user-id. In production, remove this and verify Clerk token.
+		"ALLOW_DEMO_AUTH": "true"
+	},
+	"d1_databases": [
+	{
+		"binding": "DB",
+		"database_name": "excali_cloud_db",
+		"database_id": "0db6b756-5acf-4d2f-b231-b08c368d4653",
+		"remote": true
+	}
+	],
+	"r2_buckets": [
+	{
+		"bucket_name": "excali-cloud-scenes",
+		"binding": "BUCKET",
+		"remote": true
+	}
+	]
+}
