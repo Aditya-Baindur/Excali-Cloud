@@ -5,9 +5,16 @@ import { Excalidraw, convertToExcalidrawElements } from "@excalidraw/excalidraw"
 import type {
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
+  BinaryFiles,
 } from "@excalidraw/excalidraw/types";
+
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+
 import "@excalidraw/excalidraw/index.css";
+
 import { useParams } from "next/navigation";
+import LoadingPage from "@/components/LoadingPage";
+import { useUser } from "@clerk/nextjs";
 
 type SceneElement =
   | { type: "rectangle"; x: number; y: number; width: number; height: number }
@@ -18,53 +25,35 @@ type SceneElement =
       y: number;
       width: number;
       height: number;
-      endArrowhead?: "arrow" | null;
-      startArrowhead?: "arrow" | null;
     };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
-const DEMO_USER_ID = process.env.NEXT_PUBLIC_DEMO_USER_ID || "demo-user";
+type RawScene = {
+  elements?: unknown;
+  files?: unknown;
+  appState?: unknown;
+};
 
-/**
- * Your DB stores a wrapper object like:
- * {
- *   type, version, updatedAt, boardId,
- *   elements, appState, files
- * }
- *
- * Excalidraw wants ONLY:
- * { elements, appState, files }
- */
-function normalizeScene(raw: any): ExcalidrawInitialDataState {
-  const elements = raw?.elements ?? raw?.scene?.elements ?? [];
-  const files = raw?.files ?? raw?.scene?.files ?? {};
-  const appStateRaw = raw?.appState ?? raw?.scene?.appState ?? {};
-
+function normalizeScene(raw: RawScene): ExcalidrawInitialDataState {
   return {
-    elements,
-    files,
+    elements: (raw.elements ?? []) as readonly ExcalidrawElement[],
+    files: (raw.files ?? {}) as BinaryFiles,
     appState: {
-      // sensible defaults
       viewBackgroundColor: "#ffffff",
       theme: "light",
-
-      // safe restore
-      ...appStateRaw,
-
-      // 🔥 HARD FIX: collaborators must NOT be an object
-      // Excalidraw calls .forEach on it internally.
-      collaborators: Array.isArray(appStateRaw?.collaborators)
-        ? appStateRaw.collaborators
-        : [],
+      collaborators: new Map(),
     },
   };
 }
 
 export default function ExcalidrawWrapper() {
   const { boardId } = useParams<{ boardId: string }>();
+  const { user, isLoaded } = useUser();
+
+  const USER_ID = user?.id;
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
 
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-  const saveTimer = useRef<NodeJS.Timeout | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [initialData, setInitialData] =
     useState<ExcalidrawInitialDataState | null>(null);
@@ -78,27 +67,25 @@ export default function ExcalidrawWrapper() {
 
     return {
       elements: convertToExcalidrawElements(skeleton),
+      files: {} as BinaryFiles,
       appState: {
         viewBackgroundColor: "#ffffff",
         theme: "light",
-        collaborators: [],
+        collaborators: new Map(),
       },
-      files: {},
     };
   }, []);
 
-  // -----------------------------
-  // LOAD SCENE
-  // -----------------------------
+  // ---------------- LOAD SCENE ----------------
   useEffect(() => {
-    if (!boardId) return;
+    if (!isLoaded || !USER_ID || !boardId) return;
 
     let cancelled = false;
 
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/boards/${boardId}/scene`, {
-          headers: { "x-user-id": DEMO_USER_ID },
+          headers: { "x-user-id": USER_ID },
         });
 
         if (!res.ok) {
@@ -106,12 +93,11 @@ export default function ExcalidrawWrapper() {
           return;
         }
 
-        const raw = await res.json();
+        const raw: RawScene = await res.json();
         const normalized = normalizeScene(raw);
 
         if (!cancelled) setInitialData(normalized);
-      } catch (err) {
-        console.error("Failed to load scene:", err);
+      } catch {
         if (!cancelled) setInitialData(fallbackInitialData);
       }
     })();
@@ -119,14 +105,11 @@ export default function ExcalidrawWrapper() {
     return () => {
       cancelled = true;
     };
-  }, [boardId, fallbackInitialData]);
+  }, [boardId, USER_ID, isLoaded, API_BASE, fallbackInitialData]);
 
-  // -----------------------------
-  // SAVE SCENE (DEBOUNCED)
-  // -----------------------------
+  // ---------------- SAVE SCENE ----------------
   const scheduleSave = () => {
-    if (!apiRef.current) return;
-    if (!boardId) return;
+    if (!apiRef.current || !boardId || !USER_ID) return;
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
 
@@ -136,55 +119,32 @@ export default function ExcalidrawWrapper() {
 
       const s = api.getAppState();
 
-      /**
-       * DO NOT STORE FULL APPSTATE.
-       * - It contains Maps (collaborators) and runtime-only UI junk.
-       * - JSON stringify will corrupt it.
-       */
       const payload = {
-        type: "excalidraw",
-        version: 1,
-        updatedAt: Date.now(),
-        boardId,
-
         elements: api.getSceneElements(),
         files: api.getFiles(),
-
         appState: {
-          // safe + useful
           viewBackgroundColor: s.viewBackgroundColor,
           theme: s.theme,
           zoom: s.zoom,
           scrollX: s.scrollX,
           scrollY: s.scrollY,
-          gridSize: s.gridSize,
         },
       };
 
-      try {
-        await fetch(`${API_BASE}/boards/${boardId}/scene`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "x-user-id": DEMO_USER_ID,
-          },
-          body: JSON.stringify(payload),
-        });
-      } catch (err) {
-        console.error("Failed to save scene:", err);
-      }
+      await fetch(`${API_BASE}/boards/${boardId}/scene`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": USER_ID,
+        },
+        body: JSON.stringify(payload),
+      });
     }, 700);
   };
 
-  // -----------------------------
-  // RENDER
-  // -----------------------------
-  if (!initialData) {
-    return (
-      <div className="h-screen w-screen bg-neutral-950 p-6 text-white">
-        Loading…
-      </div>
-    );
+  // ---------------- RENDER ----------------
+  if (!isLoaded || !initialData) {
+    return <LoadingPage />;
   }
 
   return (

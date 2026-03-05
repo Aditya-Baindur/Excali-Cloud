@@ -255,6 +255,46 @@ export default {
         return withCors(req, json({ ok: true, boardId }));
       }
 
+
+      /**
+ * PUT /boards/:id   { name }
+ */
+{
+  const m = match(/^\/boards\/([^/]+)$/, path);
+  if (m && req.method === "PUT") {
+    const boardId = m[1];
+
+    const body = await readJson<CreateBoardBody>(req);
+    const name = safeString(body?.name).trim();
+
+    if (!name) return withCors(req, badRequest("Missing name"));
+
+    // Ensure board belongs to user
+    const board = await env.DB.prepare(
+      `SELECT id FROM boards WHERE id = ? AND user_id = ?`
+    )
+      .bind(boardId, userId)
+      .first();
+
+    if (!board) return withCors(req, notFound());
+
+    const now = Date.now();
+
+    await env.DB.prepare(
+      `
+      UPDATE boards
+      SET name = ?, updated_at = ?
+      WHERE id = ? AND user_id = ?
+      `
+    )
+      .bind(name, now, boardId, userId)
+      .run();
+
+    return withCors(req, json({ ok: true }));
+  }
+}
+
+
       /**
        * DELETE /boards/:id
        */
