@@ -1,235 +1,171 @@
-// apps/worker/src/index.ts
-
 export interface Env {
-  DB: D1Database;
-  BUCKET: R2Bucket;
-  ALLOW_DEMO_AUTH?: string;
+  DB: D1Database
+  BUCKET: R2Bucket
+  ALLOW_DEMO_AUTH?: string
 }
 
 type BoardRow = {
-  id: string;
-  user_id: string;
-  name: string;
-  created_at: number;
-  updated_at: number;
-};
+  id: string
+  user_id: string
+  name: string
+  created_at: number
+  updated_at: number
+}
 
 type CreateBoardBody = {
-  name?: string;
-};
+  name?: string
+}
 
 type ExcalidrawScenePayload = {
-  type?: string;
-  version?: number;
-  updatedAt?: number;
-  elements?: unknown;
-  appState?: unknown;
-  files?: unknown;
-};
+  elements?: unknown
+  appState?: unknown
+  files?: unknown
+}
 
 function json(data: unknown, init: ResponseInit = {}) {
-  const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
-  return new Response(JSON.stringify(data), { ...init, headers });
+  const headers = new Headers(init.headers)
+  headers.set("Content-Type", "application/json")
+  return new Response(JSON.stringify(data), { ...init, headers })
 }
-
-/**
- * STRICT CORS
- * - Allows only known frontend origins (localhost + Pages + custom domain)
- * - Blocks all other browser origins (403)
- * - Allows curl/server-to-server via "*"
- *
- * IMPORTANT:
- * Add your real Pages/custom domains below.
- */
-function corsHeaders(req: Request): {
-  ok: true;
-  headers: Record<string, string>;
-} | {
-  ok: false;
-  headers: Record<string, string>;
-} {
-  const origin = req.headers.get("Origin");
-
-  const ALLOWED_ORIGINS = new Set<string>([
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    // "https://excali-cloud.pages.dev",
-    // "https://excali.adityabaindur.dev",
-  ]);
-
-  // Non-browser request
-  if (!origin) {
-    return {
-      ok: true,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, x-user-id",
-      },
-    };
-  }
-
-  // Blocked browser origin
-  if (!ALLOWED_ORIGINS.has(origin)) {
-    return {
-      ok: false,
-      headers: {
-        "Access-Control-Allow-Origin": "null",
-        "Vary": "Origin",
-      },
-    };
-  }
-
-  const requestHeaders = req.headers.get("Access-Control-Request-Headers");
-
-  return {
-    ok: true,
-    headers: {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Credentials": "true",
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers":
-        requestHeaders ?? "Content-Type, Authorization, x-user-id",
-      "Access-Control-Max-Age": "86400",
-      "Vary": "Origin",
-    },
-  };
-}
-
 
 function withCors(req: Request, res: Response) {
-  const cors = corsHeaders(req);
+  const headers = new Headers(res.headers)
 
-  if (!cors.ok) {
-    return new Response("CORS blocked", { status: 403 });
+  const origin = req.headers.get("Origin")
+
+  const ALLOWED = new Set([
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://draw.adityabaindur.dev"
+  ])
+
+  if (!origin || ALLOWED.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin ?? "*")
   }
 
-  const headers = new Headers(res.headers);
-  for (const [k, v] of Object.entries(cors.headers)) {
-    headers.set(k, v);
-  }
+  headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-user-id"
+  )
+  headers.set("Access-Control-Allow-Credentials", "true")
 
-  return new Response(res.body, { status: res.status, headers });
-}
-
-
-function notFound() {
-  return new Response("Not found", { status: 404 });
+  return new Response(res.body, {
+    status: res.status,
+    headers
+  })
 }
 
 function badRequest(msg: string) {
-  return json({ ok: false, error: msg }, { status: 400 });
+  return json({ ok: false, error: msg }, { status: 400 })
+}
+
+function notFound() {
+  return new Response("Not found", { status: 404 })
 }
 
 async function readJson<T>(req: Request): Promise<T | null> {
   try {
-    return (await req.json()) as T;
+    return (await req.json()) as T
   } catch {
-    return null;
+    return null
   }
 }
 
-/**
- * AUTH (MVP)
- * For now: accept x-user-id header.
- * Replace this with Clerk JWT verification later.
- */
 function getUserId(req: Request, env: Env): string | null {
-  const demo = env.ALLOW_DEMO_AUTH === "true";
-  if (!demo) return null;
+  const headerId = req.headers.get("x-user-id")
 
-  const userId = req.headers.get("x-user-id");
-  if (!userId) {
-    console.log("NO USER ID PROVIDED")
-    return null;
+  if (env.ALLOW_DEMO_AUTH === "true") {
+    return headerId ?? "demo-user"
   }
 
-  return userId;
+  return headerId
 }
 
 function parsePath(url: string) {
-  const u = new URL(url);
-  return u.pathname.replace(/\/+$/, "") || "/";
+  const u = new URL(url)
+  return u.pathname.replace(/\/+$/, "") || "/"
 }
 
 function match(pattern: RegExp, path: string) {
-  return path.match(pattern);
+  return path.match(pattern)
 }
 
 function safeString(v: unknown) {
-  return typeof v === "string" ? v : "";
+  return typeof v === "string" ? v : ""
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
+  return typeof v === "object" && v !== null && !Array.isArray(v)
 }
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    // Preflight
+
     if (req.method === "OPTIONS") {
-      return withCors(req, new Response(null, { status: 204 }));
+      return withCors(req, new Response(null, { status: 204 }))
     }
 
-    const path = parsePath(req.url);
+    const path = parsePath(req.url)
 
-    // Health
     if (path === "/") {
-      return withCors(req, json({ ok: true, service: "excali-cloud-api" }));
+      return withCors(req, json({ ok: true, service: "excali-cloud-api" }))
     }
 
-    const userId = getUserId(req, env);
+    const userId = getUserId(req, env)
+
     if (!userId) {
-      return withCors(req, json({ ok: false, error: "Unauthorized" }, { status: 401 }));
+      return withCors(
+        req,
+        json({ ok: false, error: "Unauthorized" }, { status: 401 })
+      )
     }
 
     try {
-      /**
-       * GET /boards
-       */
+
       if (req.method === "GET" && path === "/boards") {
+
         const res = await env.DB.prepare(
-          `SELECT id, user_id, name, created_at, updated_at
+          `SELECT id,user_id,name,created_at,updated_at
            FROM boards
-           WHERE user_id = ?
+           WHERE user_id=?
            ORDER BY updated_at DESC`
         )
           .bind(userId)
-          .all<BoardRow>();
+          .all<BoardRow>()
 
         const boards =
           res.results?.map((r) => ({
             id: r.id,
             name: r.name,
             createdAt: r.created_at,
-            updatedAt: r.updated_at,
-          })) ?? [];
+            updatedAt: r.updated_at
+          })) ?? []
 
-        return withCors(req, json({ ok: true, boards }));
+        return withCors(req, json({ ok: true, boards }))
       }
 
-      /**
-       * POST /boards  { name }
-       */
       if (req.method === "POST" && path === "/boards") {
-        const body = await readJson<CreateBoardBody>(req);
-        const name = safeString(body?.name).trim();
 
-        if (!name) return withCors(req, badRequest("Missing name"));
+        const body = await readJson<CreateBoardBody>(req)
+        const name = safeString(body?.name).trim()
 
-        const boardId = crypto.randomUUID();
-        const now = Date.now();
+        if (!name) {
+          return withCors(req, badRequest("Missing name"))
+        }
+
+        const boardId = crypto.randomUUID()
+        const now = Date.now()
 
         await env.DB.prepare(
-          `INSERT INTO boards (id, user_id, name, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?)`
+          `INSERT INTO boards
+           (id,user_id,name,created_at,updated_at)
+           VALUES (?,?,?,?,?)`
         )
           .bind(boardId, userId, name, now, now)
-          .run();
+          .run()
 
-        // Create empty scene in R2 and pointer row in D1
-        const r2Key = `users/${userId}/boards/${boardId}/scene.json`;
+        const r2Key = `users/${userId}/boards/${boardId}/scene.json`
 
         await env.BUCKET.put(
           r2Key,
@@ -240,124 +176,112 @@ export default {
             elements: [],
             appState: { viewBackgroundColor: "#ffffff" },
             files: {},
-            boardId,
+            boardId
           }),
           { httpMetadata: { contentType: "application/json" } }
-        );
+        )
 
         await env.DB.prepare(
-          `INSERT INTO board_scenes (board_id, user_id, r2_key, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?)`
+          `INSERT INTO board_scenes
+           (board_id,user_id,r2_key,created_at,updated_at)
+           VALUES (?,?,?,?,?)`
         )
           .bind(boardId, userId, r2Key, now, now)
-          .run();
+          .run()
 
-        return withCors(req, json({ ok: true, boardId }));
+        return withCors(req, json({ ok: true, boardId }))
       }
 
-
-      /**
- * PUT /boards/:id   { name }
- */
-{
-  const m = match(/^\/boards\/([^/]+)$/, path);
-  if (m && req.method === "PUT") {
-    const boardId = m[1];
-
-    const body = await readJson<CreateBoardBody>(req);
-    const name = safeString(body?.name).trim();
-
-    if (!name) return withCors(req, badRequest("Missing name"));
-
-    // Ensure board belongs to user
-    const board = await env.DB.prepare(
-      `SELECT id FROM boards WHERE id = ? AND user_id = ?`
-    )
-      .bind(boardId, userId)
-      .first();
-
-    if (!board) return withCors(req, notFound());
-
-    const now = Date.now();
-
-    await env.DB.prepare(
-      `
-      UPDATE boards
-      SET name = ?, updated_at = ?
-      WHERE id = ? AND user_id = ?
-      `
-    )
-      .bind(name, now, boardId, userId)
-      .run();
-
-    return withCors(req, json({ ok: true }));
-  }
-}
-
-
-      /**
-       * DELETE /boards/:id
-       */
       {
-        const m = match(/^\/boards\/([^/]+)$/, path);
-        if (m && req.method === "DELETE") {
-          const boardId = m[1];
+        const m = match(/^\/boards\/([^/]+)$/, path)
 
-          // Ensure board belongs to user
-          const board = await env.DB.prepare(
-            `SELECT id FROM boards WHERE id = ? AND user_id = ?`
-          )
-            .bind(boardId, userId)
-            .first();
+        if (m && req.method === "PUT") {
 
-          if (!board) return withCors(req, notFound());
+          const boardId = m[1]
 
-          const scene = await env.DB.prepare(
-            `SELECT r2_key FROM board_scenes WHERE board_id = ? AND user_id = ?`
-          )
-            .bind(boardId, userId)
-            .first<{ r2_key: string }>();
+          const body = await readJson<CreateBoardBody>(req)
+          const name = safeString(body?.name).trim()
 
-          if (scene?.r2_key) {
-            await env.BUCKET.delete(scene.r2_key);
+          if (!name) {
+            return withCors(req, badRequest("Missing name"))
           }
 
-          await env.DB.prepare(
-            `DELETE FROM board_scenes WHERE board_id = ? AND user_id = ?`
+          const board = await env.DB.prepare(
+            `SELECT id FROM boards
+             WHERE id=? AND user_id=?`
           )
             .bind(boardId, userId)
-            .run();
+            .first()
 
-          await env.DB.prepare(`DELETE FROM boards WHERE id = ? AND user_id = ?`)
-            .bind(boardId, userId)
-            .run();
+          if (!board) {
+            return withCors(req, notFound())
+          }
 
-          return withCors(req, json({ ok: true }));
+          const now = Date.now()
+
+          await env.DB.prepare(
+            `UPDATE boards
+             SET name=?,updated_at=?
+             WHERE id=? AND user_id=?`
+          )
+            .bind(name, now, boardId, userId)
+            .run()
+
+          return withCors(req, json({ ok: true }))
         }
       }
 
-      /**
-       * GET /boards/:id/scene
-       */
       {
-        const m = match(/^\/boards\/([^/]+)\/scene$/, path);
-        if (m && req.method === "GET") {
-          const boardId = m[1];
+        const m = match(/^\/boards\/([^/]+)$/, path)
 
-          // Ensure board belongs to user
-          const board = await env.DB.prepare(
-            `SELECT id FROM boards WHERE id = ? AND user_id = ?`
-          )
-            .bind(boardId, userId)
-            .first();
+        if (m && req.method === "DELETE") {
 
-          if (!board) return withCors(req, notFound());
+          const boardId = m[1]
 
           const scene = await env.DB.prepare(
-            `SELECT r2_key FROM board_scenes WHERE board_id = ? AND user_id = ?`
+            `SELECT r2_key
+             FROM board_scenes
+             WHERE board_id=? AND user_id=?`
           )
             .bind(boardId, userId)
-            .first<{ r2_key: string }>();
+            .first<{ r2_key: string }>()
+
+          if (scene?.r2_key) {
+            await env.BUCKET.delete(scene.r2_key)
+          }
+
+          await env.DB.prepare(
+            `DELETE FROM board_scenes
+             WHERE board_id=? AND user_id=?`
+          )
+            .bind(boardId, userId)
+            .run()
+
+          await env.DB.prepare(
+            `DELETE FROM boards
+             WHERE id=? AND user_id=?`
+          )
+            .bind(boardId, userId)
+            .run()
+
+          return withCors(req, json({ ok: true }))
+        }
+      }
+
+      {
+        const m = match(/^\/boards\/([^/]+)\/scene$/, path)
+
+        if (m && req.method === "GET") {
+
+          const boardId = m[1]
+
+          const scene = await env.DB.prepare(
+            `SELECT r2_key
+             FROM board_scenes
+             WHERE board_id=? AND user_id=?`
+          )
+            .bind(boardId, userId)
+            .first<{ r2_key: string }>()
 
           if (!scene?.r2_key) {
             return withCors(
@@ -369,110 +293,113 @@ export default {
                 elements: [],
                 appState: { viewBackgroundColor: "#ffffff" },
                 files: {},
-                boardId,
+                boardId
               })
-            );
+            )
           }
 
-          const obj = await env.BUCKET.get(scene.r2_key);
-          if (!obj) return withCors(req, notFound());
+          const obj = await env.BUCKET.get(scene.r2_key)
 
-          const text = await obj.text();
+          if (!obj) {
+            return withCors(req, notFound())
+          }
+
           return withCors(
             req,
-            new Response(text, { headers: { "Content-Type": "application/json" } })
-          );
+            new Response(await obj.text(), {
+              headers: { "Content-Type": "application/json" }
+            })
+          )
         }
       }
 
-      /**
-       * PUT /boards/:id/scene
-       */
       {
-        const m = match(/^\/boards\/([^/]+)\/scene$/, path);
+        const m = match(/^\/boards\/([^/]+)\/scene$/, path)
+
         if (m && req.method === "PUT") {
-          const boardId = m[1];
 
-          // Ensure board belongs to user
-          const board = await env.DB.prepare(
-            `SELECT id FROM boards WHERE id = ? AND user_id = ?`
-          )
-            .bind(boardId, userId)
-            .first();
+          const boardId = m[1]
 
-          if (!board) return withCors(req, notFound());
+          const payload = await readJson<ExcalidrawScenePayload>(req)
 
-          const payload = await readJson<ExcalidrawScenePayload>(req);
-          if (!payload) return withCors(req, badRequest("Invalid JSON"));
+          if (!payload) {
+            return withCors(req, badRequest("Invalid JSON"))
+          }
 
-          // Minimal validation
           if (!Array.isArray(payload.elements)) {
-            return withCors(req, badRequest("Invalid payload: elements must be an array"));
+            return withCors(
+              req,
+              badRequest("elements must be array")
+            )
           }
+
           if (!isPlainObject(payload.appState)) {
-            return withCors(req, badRequest("Invalid payload: appState must be an object"));
+            return withCors(
+              req,
+              badRequest("appState must be object")
+            )
           }
 
-          const now = Date.now();
+          const now = Date.now()
 
-          const existing = await env.DB.prepare(
-            `SELECT r2_key FROM board_scenes WHERE board_id = ? AND user_id = ?`
-          )
-            .bind(boardId, userId)
-            .first<{ r2_key: string }>();
-
-          const r2Key = existing?.r2_key ?? `users/${userId}/boards/${boardId}/scene.json`;
+          const r2Key = `users/${userId}/boards/${boardId}/scene.json`
 
           const stored = {
             type: "excalidraw",
             version: 1,
             updatedAt: now,
             boardId,
-
             elements: payload.elements,
             appState: payload.appState,
-            files: isPlainObject(payload.files) ? payload.files : {},
-          };
+            files: isPlainObject(payload.files) ? payload.files : {}
+          }
 
-          await env.BUCKET.put(r2Key, JSON.stringify(stored), {
-            httpMetadata: { contentType: "application/json" },
-          });
-
-          await env.DB.prepare(
-            `
-            INSERT INTO board_scenes (board_id, user_id, r2_key, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(board_id) DO UPDATE SET
-              r2_key = excluded.r2_key,
-              updated_at = excluded.updated_at
-            `
+          await env.BUCKET.put(
+            r2Key,
+            JSON.stringify(stored),
+            { httpMetadata: { contentType: "application/json" } }
           )
-            .bind(boardId, userId, r2Key, now, now)
-            .run();
 
           await env.DB.prepare(
-            `UPDATE boards SET updated_at = ? WHERE id = ? AND user_id = ?`
+            `INSERT INTO board_scenes
+             (board_id,user_id,r2_key,created_at,updated_at)
+             VALUES (?,?,?,?,?)
+             ON CONFLICT(board_id)
+             DO UPDATE SET updated_at=?`
+          )
+            .bind(boardId, userId, r2Key, now, now, now)
+            .run()
+
+          await env.DB.prepare(
+            `UPDATE boards
+             SET updated_at=?
+             WHERE id=? AND user_id=?`
           )
             .bind(now, boardId, userId)
-            .run();
+            .run()
 
-          return withCors(req, json({ ok: true }));
+          return withCors(req, json({ ok: true }))
         }
       }
 
-      return withCors(req, notFound());
+      return withCors(req, notFound())
+
     } catch (err: unknown) {
+
       return withCors(
         req,
         json(
           {
             ok: false,
             error: "Internal error",
-            details: err instanceof Error ? err.message : String(err),
+            details:
+              err instanceof Error
+                ? err.message
+                : String(err)
           },
           { status: 500 }
         )
-      );
+      )
     }
-  },
-};
+  }
+}

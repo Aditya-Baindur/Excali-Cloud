@@ -18,7 +18,7 @@
 	//   { "pattern": "api.adityabaindur.dev/*", "zone_name": "adityabaindur.dev" }
 	// ],
 	"vars": {
-		// In MVP we use a header x-user-id. In production, remove this and verify Clerk token.
+		// If we want to bypass CORS, we can use : 
 		"ALLOW_DEMO_AUTH": "true"
 	},
 	"d1_databases": [
@@ -34,6 +34,6 @@
 		"bucket_name": "excali-cloud-scenes",
 		"binding": "BUCKET",
 		"remote": true
-	}
+	}, 
 	]
 }

@@ -252,80 +252,85 @@ export default function DashboardPage() {
               No boards yet. Create your first one.
             </div>
           ) : (
-            boards.map((b) => (
-              <Card
-                key={b.id}
-                className="group relative h-44 overflow-hidden border-white/10 bg-white/[0.02] transition hover:bg-white/[0.04]"
-              >
+boards.map((b) => (
+  <Link key={b.id} href={`/board/${b.id}`} className="block">
+    <Card
+      className="group relative h-44 overflow-hidden border-white/10 bg-white/[0.02] transition hover:bg-white/[0.04] cursor-pointer"
+    >
 
-                <div className="absolute inset-x-0 top-0 h-[2px] bg-violet-500/80" />
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-violet-500/80" />
 
-                <div className="flex h-full flex-col justify-between p-5">
+      <div className="flex h-full flex-col justify-between p-5">
 
-                  {/* TOP */}
-                  <div className="flex items-start justify-between gap-3">
+        {/* TOP */}
+        <div className="flex items-start justify-between gap-3">
 
-                    <div>
-                      <div className="mt-2 text-lg font-semibold tracking-tight text-white">
-                        {b.name}
-                      </div>
-                    </div>
+          <div>
+            <div className="mt-2 text-lg font-semibold tracking-tight text-white">
+              {b.name}
+            </div>
+          </div>
 
-                    <div className="flex gap-1">
+          <div className="flex gap-1">
 
-                      {/* RENAME */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-neutral-300 hover:text-white"
-                        onClick={() => {
-                          setRenameBoardId(b.id);
-                          setRenameName(b.name);
-                          setRenameOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+            {/* RENAME */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-neutral-300 hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
 
-                      {/* DELETE */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-neutral-300 hover:text-white"
-                        onClick={() => deleteBoard(b.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                setRenameBoardId(b.id);
+                setRenameName(b.name);
+                setRenameOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
 
-                    </div>
+            {/* DELETE */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-neutral-300 hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteBoard(b.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
 
-                  </div>
+          </div>
 
-                  {/* BOTTOM */}
-                  <div className="flex items-center justify-between text-sm text-neutral-400">
+        </div>
 
-                    <span>
-                      Updated{" "}
-                      {new Date(b.updatedAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric"
-                      })}
-                    </span>
+        {/* BOTTOM */}
+        <div className="flex items-center justify-between text-sm text-neutral-400">
 
-                    <Link
-                      href={`/board/${b.id}`}
-                      className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100 text-white"
-                    >
-                      Open
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
+          <span>
+            Updated{" "}
+            {new Date(b.updatedAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric"
+            })}
+          </span>
 
-                  </div>
+          <div className="flex items-center gap-2 opacity-0 transition group-hover:opacity-100 text-white">
+            Open
+            <ArrowRight className="h-4 w-4" />
+          </div>
 
-                </div>
+        </div>
 
-              </Card>
-            ))
+      </div>
+
+    </Card>
+  </Link>
+))
           )}
 
         </div>
