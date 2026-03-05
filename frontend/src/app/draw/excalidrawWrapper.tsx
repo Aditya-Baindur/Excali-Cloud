@@ -21,10 +21,11 @@ type SceneElement =
     };
 
 export default function ExcalidrawWrapper() {
-  const { boardId } = useParams<{ boardId: string }>();
+  const params = useParams();
+  const boardId = params?.boardId as string;
 
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-  const saveTimer = useRef<NodeJS.Timeout | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const initialData = useMemo(() => {
     const skeleton = [
@@ -52,8 +53,7 @@ export default function ExcalidrawWrapper() {
         type: "excalidraw",
         version: 1,
         updatedAt: Date.now(),
-        boardId, // ✅ include it here
-
+        boardId,
         elements: api.getSceneElements(),
         appState: api.getAppState(),
         files: api.getFiles(),
@@ -75,6 +75,28 @@ export default function ExcalidrawWrapper() {
         initialData={initialData}
         excalidrawAPI={(api) => (apiRef.current = api)}
         onChange={scheduleSave}
+        renderTopRightUI={() => (
+          <button
+            style={{
+              padding: "6px 10px",
+              background: "black",
+              color: "white",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              console.log("Custom button clicked");
+
+              const api = apiRef.current;
+              if (!api) return;
+
+              const elements = api.getSceneElements();
+              console.log("elements:", elements);
+            }}
+          >
+            Custom Action
+          </button>
+        )}
       />
     </div>
   );
