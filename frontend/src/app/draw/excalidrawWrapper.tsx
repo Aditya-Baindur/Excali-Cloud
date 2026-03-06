@@ -5,7 +5,7 @@ import { Excalidraw, convertToExcalidrawElements } from "@excalidraw/excalidraw"
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 type SceneElement =
   | { type: "rectangle"; x: number; y: number; width: number; height: number }
@@ -26,6 +26,7 @@ export default function ExcalidrawWrapper() {
 
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
 
   const initialData = useMemo(() => {
     const skeleton = [
@@ -85,16 +86,10 @@ export default function ExcalidrawWrapper() {
               cursor: "pointer",
             }}
             onClick={() => {
-              console.log("Custom button clicked");
-
-              const api = apiRef.current;
-              if (!api) return;
-
-              const elements = api.getSceneElements();
-              console.log("elements:", elements);
+              router.push("/dashboard")
             }}
           >
-            Custom Action
+            Dash
           </button>
         )}
       />
