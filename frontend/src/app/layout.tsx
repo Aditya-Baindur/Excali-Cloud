@@ -1,21 +1,21 @@
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { ClerkProvider } from "@clerk/nextjs"
-import "./globals.css"
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { ClerkProvider } from '@clerk/nextjs'
+import './globals.css'
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 })
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 })
 
 export const metadata: Metadata = {
-  title: "EXCALI-CLOUD",
-  description: "Collaborative whiteboard powered by Cloudflare",
+  title: 'EXCALI-CLOUD',
+  description: 'Collaborative whiteboard powered by Cloudflare',
 }
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
+          className={`${geistSans.variable} ${geistMono.variable} bg-black text-white antialiased`}
         >
           {children}
         </body>

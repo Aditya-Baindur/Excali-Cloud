@@ -1,12 +1,12 @@
-"use client"
+'use client'
 
-import * as React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useUser } from "@clerk/nextjs"
-import { ArrowRight, PencilRuler } from "lucide-react"
+import * as React from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
+import { ArrowRight, PencilRuler } from 'lucide-react'
 
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button'
 
 export default function Page() {
   const router = useRouter()
@@ -14,7 +14,7 @@ export default function Page() {
 
   React.useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.push("/dashboard")
+      router.push('/dashboard')
     }
   }, [isLoaded, isSignedIn, router])
 
@@ -22,64 +22,61 @@ export default function Page() {
   if (isSignedIn) return null
 
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-black text-white px-6">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden text-white">
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/bg.avif')" }}
+      />
 
-      {/* background glow */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-250px] h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute bottom-[-150px] right-[15%] h-[350px] w-[350px] rounded-full bg-white/5 blur-3xl" />
-      </div>
+      {/* Apple-style dark gradient overlay */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
 
-      <div className="relative max-w-2xl text-center space-y-8">
-
-        {/* Title */}
+      {/* Content */}
+      <div className="relative z-10 max-w-2xl space-y-10 px-6 text-center">
+        {/* Logo */}
         <div className="flex items-center justify-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-            <PencilRuler className="h-5 w-5" />
-          </div>
 
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-            EXCALI-CLOUD
+          <h1 className="text-5xl font-semibold tracking-tight">
+            Excali-Cloud
           </h1>
         </div>
 
-        {/* Description */}
-        <p className="text-white/60 text-lg leading-relaxed">
-          A collaborative whiteboard powered by
-          <span className="text-white"> Cloudflare R2</span> and
-          <span className="text-white"> D1</span>.
+        {/* Subtitle */}
+        <p className="text-lg leading-relaxed text-white/70">
+          A stateful excalidraw whiteboard powered by
+          <span className="font-medium text-white"> Cloudflare R2</span> and
+          <span className="font-medium text-white"> D1</span>.
         </p>
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-
+        {/* CTAs */}
+        <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+          {/* Public Demo */}
           <Button
             asChild
-            className="h-12 px-8 rounded-2xl bg-white text-black hover:bg-white/90"
+            className="h-12 rounded-full bg-white px-10 text-base font-medium text-black shadow-md hover:bg-transparent hover:text-white hover:outline-2 hover:outline-white"
           >
-            <Link href="/dashboard">
-              Open Dashboard
-              <ArrowRight className="ml-2 h-4 w-4" />
+            <Link href="/public" className="flex items-center gap-3">
+              <span className="ml-1">Try Demo</span>
+              <ArrowRight className="mr-1 h-4 w-4 opacity-70" />
             </Link>
           </Button>
 
+          {/* Dashboard */}
           <Button
             asChild
             variant="ghost"
-            className="h-12 px-8 rounded-2xl border border-white/15 text-white hover:bg-white/10"
+            className="h-12 rounded-full border border-white/20 px-10 text-white hover:bg-white"
           >
-            <Link href="/draw">
-              Quick Board
-            </Link>
+            <Link href="/dashboard">Open Dashboard</Link>
           </Button>
-
         </div>
 
-        {/* Hint */}
+        {/* Small hint */}
         <p className="text-xs text-white/40">
-          Quick Board deletes on refresh • Dashboard boards persist
+          Demo boards persist but are limited to 3 • Dashboard boards persist
+          and are unlimited • <br/> Currently No sign-up for dashboard
         </p>
-
       </div>
     </main>
   )

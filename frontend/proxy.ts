@@ -1,11 +1,11 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
-import { NextResponse } from "next/server"
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 const isPublicRoute = createRouteMatcher([
-  "/",
-  "/draw(.*)",
-  "/sign-in(.*)",
-  "/public(.*)"
+  '/',
+  '/draw(.*)',
+  '/sign-in(.*)',
+  '/public(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
@@ -16,18 +16,18 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect()
   }
 
-  if (userId && url.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  if (userId && url.pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
-  if (userId && url.pathname.startsWith("/sign-in")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  if (userId && url.pathname.startsWith('/sign-in')) {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 })
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|png|jpg|jpeg|gif|svg|woff2?|ico)).*)",
-    "/(api|trpc)(.*)",
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|png|jpg|jpeg|gif|svg|woff2?|ico)).*)',
+    '/(api|trpc)(.*)',
   ],
 }

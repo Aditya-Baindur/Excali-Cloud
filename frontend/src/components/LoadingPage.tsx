@@ -1,19 +1,19 @@
-"use client";
+'use client'
 
-import React, { useEffect } from "react";
-import { LoaderCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import React, { useEffect } from 'react'
+import { LoaderCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 
 export default function LoadingPage() {
-  const { isLoaded, isSignedIn } = useUser();
-  const router = useRouter();
+  const { isLoaded, isSignedIn } = useUser()
+  const router = useRouter()
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      router.push("/sign-in");
+      router.push('/sign-in')
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, router])
 
   if (!isLoaded) {
     return (
@@ -23,9 +23,8 @@ export default function LoadingPage() {
           <h1>Loading…</h1>
         </div>
       </div>
-    );
+    )
   }
 
-  return null;
-  
+  return null
 }
