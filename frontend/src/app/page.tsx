@@ -63,14 +63,14 @@ export default function Page() {
           </Button>
 
           {/* Dashboard */}
-          <Button
+          {/* <Button
             asChild
             variant="ghost"
             className="h-12 rounded-full border border-white/20 px-10 text-white hover:bg-white"
           >
             <Link href="/dashboard">Open Dashboard</Link>
           </Button>
-        </div>
+        </div> */}
 
         {/* Small hint */}
         <p className="text-xs text-white/40">
