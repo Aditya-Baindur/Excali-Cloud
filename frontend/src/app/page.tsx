@@ -69,8 +69,8 @@ export default function Page() {
             className="h-12 rounded-full border border-white/20 px-10 text-white hover:bg-white"
           >
             <Link href="/dashboard">Open Dashboard</Link>
-          </Button>
-        </div> */}
+          </Button> */}
+        </div> 
 
         {/* Small hint */}
         <p className="text-xs text-white/40">
