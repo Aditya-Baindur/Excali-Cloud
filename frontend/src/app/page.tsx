@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-import { ArrowRight, PencilRuler } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -36,7 +36,6 @@ export default function Page() {
       <div className="relative z-10 max-w-2xl space-y-10 px-6 text-center">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3">
-
           <h1 className="text-5xl font-semibold tracking-tight">
             Excali-Cloud
           </h1>
@@ -70,12 +69,16 @@ export default function Page() {
           >
             <Link href="/dashboard">Open Dashboard</Link>
           </Button> */}
-        </div> 
+        </div>
 
         {/* Small hint */}
         <p className="text-xs text-white/40">
           Demo boards persist but are limited to 3 • Dashboard boards persist
-          and are unlimited • <br/> Currently No sign-up for dashboard
+          and are unlimited • <br /> Currently No sign-up for dashboard We use
+          analytics to help improve the website{' '}
+          <a href="/privacy" className="text-white hover:text-white/80">
+            learn more
+          </a>
         </p>
       </div>
     </main>

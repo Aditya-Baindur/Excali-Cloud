@@ -111,7 +111,6 @@ export default function ExcalidrawWrapper() {
             libraryItems: lib.libraryItems ?? lib.library ?? [],
             merge: true,
           })
-          
         } catch (error) {
           console.error('Failed loading library:', url, error)
         }
@@ -140,7 +139,9 @@ export default function ExcalidrawWrapper() {
 
         if (!cancelled) {
           setInitialData(normalized)
-          lastSavedVersion.current = hashElementsVersion(normalized.elements ?? [])
+          lastSavedVersion.current = hashElementsVersion(
+            normalized.elements ?? []
+          )
         }
       } catch {
         if (!cancelled) setInitialData(fallbackInitialData)

@@ -88,7 +88,6 @@ export default function ExcalidrawWrapper() {
       },
     }
   }, [])
-  
 
   // LOAD SCENE
   useEffect(() => {
@@ -246,11 +245,6 @@ export default function ExcalidrawWrapper() {
       </div>
     )
   }, [router, saveScene])
-
-
-
-
-  
 
   if (!isLoaded || !initialData) return <LoadingPage />
 

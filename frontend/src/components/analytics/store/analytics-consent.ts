@@ -23,6 +23,7 @@ const STORAGE_SOURCE_KEY = 'analytics-consent-source'
 const EXPLICIT_CONSENT_SOURCE = 'explicit'
 const REGION_COOKIE_KEY = 'analytics-consent-region'
 const DEFAULT_REGION_ENDPOINT = 'https://region.vicilabs.dev/api/region'
+const REQUIRE_CONSENT_FOR_ALL_COUNTRIES = process.env.NEXT_PUBLIC_ANALYTICS_ALL_COUNTRIES === 'true'
 
 const CONSENT_REQUIRED_COUNTRIES = new Set([
   'AT',
@@ -104,6 +105,8 @@ function cleanString(value: unknown) {
 }
 
 function getConsentRegionFromCountry(country: string | null): ConsentRegion {
+  if (REQUIRE_CONSENT_FOR_ALL_COUNTRIES) return 'required'
+w
   if (!country || country === 'XX' || country === 'T1') return 'not-required'
 
   return CONSENT_REQUIRED_COUNTRIES.has(country) ? 'required' : 'not-required'
@@ -185,7 +188,9 @@ export const useAnalyticsConsent = create<AnalyticsConsentStore>(
       if (typeof window === 'undefined') return
 
       try {
-        const cookieRegion = readConsentRegion()
+        const cookieRegion = REQUIRE_CONSENT_FOR_ALL_COUNTRIES
+          ? 'required'
+          : readConsentRegion()
         const stored = readStoredConsent()
 
         set({
