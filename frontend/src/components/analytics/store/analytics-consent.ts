@@ -106,7 +106,7 @@ function cleanString(value: unknown) {
 
 function getConsentRegionFromCountry(country: string | null): ConsentRegion {
   if (REQUIRE_CONSENT_FOR_ALL_COUNTRIES) return 'required'
-w
+
   if (!country || country === 'XX' || country === 'T1') return 'not-required'
 
   return CONSENT_REQUIRED_COUNTRIES.has(country) ? 'required' : 'not-required'
