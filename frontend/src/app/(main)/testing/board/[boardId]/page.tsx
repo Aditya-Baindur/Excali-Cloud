@@ -1,12 +1,10 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import dynamic from 'next/dynamic'
-
-const ExcalidrawWrapper = dynamic(
-  async () => (await import('./excalidrawWrapper')).default,
-  { ssr: false }
-)
-
-export default function Page() {
-  return <ExcalidrawWrapper />
+export default async function TestingBoardPage({
+  params,
+}: {
+  params: Promise<{ boardId: string }>
+}) {
+  const { boardId } = await params
+  redirect(`/board/${encodeURIComponent(boardId)}`)
 }

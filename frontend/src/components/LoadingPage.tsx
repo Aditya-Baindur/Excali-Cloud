@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
@@ -17,10 +17,13 @@ export default function LoadingPage() {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
-        <div className="flex items-center gap-3 text-2xl font-semibold text-white">
-          <LoaderCircle className="h-6 w-6 animate-spin" />
-          <h1>Loading…</h1>
+      <div
+        role="status"
+        className="flex h-dvh items-center justify-center bg-black"
+      >
+        <div className="flex items-center gap-2 text-sm text-neutral-400">
+          <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <span>Loading…</span>
         </div>
       </div>
     )

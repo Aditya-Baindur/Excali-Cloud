@@ -1,0 +1,9 @@
+# Copy to .dev.vars for local development. Set the deployed Worker's matching
+# variables before deployment; .dev.vars is never uploaded by Wrangler.
+# Use the exact issuer from your Clerk instance (Frontend API URL).
+CLERK_ISSUER="https://your-instance.clerk.accounts.dev"
+CLERK_AUTHORIZED_PARTIES="http://localhost:3000,http://127.0.0.1:3000,https://draw.adityabaindur.dev,https://www.collabboard.dev,https://collabboard.dev"
+# Optional Clerk PEM public key for verification without a JWKS network request.
+# CLERK_JWT_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+# Only the explicitly public demo-user/PUBLIC-USER namespaces accept X-User-Id.
+ALLOW_DEMO_AUTH="true"

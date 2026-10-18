@@ -1,0 +1,40 @@
+{
+  "name": "excali-cloud-deployment",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "pnpm --dir frontend install --frozen-lockfile && pnpm --dir frontend run build:cloudflare",
+    "deploy": "node scripts/deploy-cloudflare.mjs",
+    "deploy:check": "node scripts/deploy-cloudflare.mjs --dry-run",
+    "dev": "node scripts/preview-cloudflare.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "db:migrate:local": "pnpm --dir frontend exec wrangler d1 migrations apply DB --local --config ../wrangler.jsonc"
+  },
+  "devDependencies": {
+    "pnpm": "11.28.6"
+  },
+  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "Stores boards, folders, shares, and video metadata. Tables are created automatically during deployment."
+      },
+      "BUCKET": {
+        "description": "Stores drawing scenes, recovery revisions, and uploaded videos."
+      },
+      "ALLOW_DEMO_AUTH": {
+        "description": "Set to true to enable the shared, publicly editable demo workspace linked from Try demo. Personal boards always require sign-in. Set to false to disable the demo."
+      },
+      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": {
+        "description": "Your Clerk application's **Publishable key** (pk_test_\u2026 or pk_live_\u2026) from [Clerk API keys](https://dashboard.clerk.com/last-active?path=api-keys). Use the matching secret key below."
+      },
+      "CLERK_SECRET_KEY": {
+        "description": "Your Clerk application's **Secret key** (sk_test_\u2026 or sk_live_\u2026). Stored as an encrypted Worker secret."
+      }
+    }
+  },
+  "dependencies": {
+    "jose": "6.2.12"
+  }
+}

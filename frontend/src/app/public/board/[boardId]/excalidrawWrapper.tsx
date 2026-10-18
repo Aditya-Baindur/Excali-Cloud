@@ -1,11 +1,7 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import {
-  Excalidraw,
-  convertToExcalidrawElements,
-  hashElementsVersion,
-} from '@excalidraw/excalidraw'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { Excalidraw, hashElementsVersion } from '@excalidraw/excalidraw'
 
 import type {
   ExcalidrawImperativeAPI,
@@ -18,17 +14,7 @@ import '@excalidraw/excalidraw/index.css'
 import { useParams, useRouter } from 'next/navigation'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import LoadingPageNS from '@/components/LoadingPageNoSignIn'
-
-type SceneElement =
-  | { type: 'rectangle'; x: number; y: number; width: number; height: number }
-  | { type: 'text'; x: number; y: number; text: string; fontSize?: number }
-  | {
-      type: 'arrow' | 'line'
-      x: number
-      y: number
-      width: number
-      height: number
-    }
+import { useBoardNavigation } from '@/components/workspace/BoardCommandMenu'
 
 type RawScene = {
   elements?: unknown
@@ -54,6 +40,7 @@ function normalizeScene(raw: RawScene): ExcalidrawInitialDataState {
 export default function ExcalidrawWrapper() {
   const { boardId } = useParams<{ boardId: string }>()
   const router = useRouter()
+  const { registerGuard } = useBoardNavigation()
 
   const USER_ID = 'PUBLIC-USER'
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE!
@@ -61,6 +48,8 @@ export default function ExcalidrawWrapper() {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
   const saveTimer = useRef<NodeJS.Timeout | null>(null)
   const resetTimer = useRef<NodeJS.Timeout | null>(null)
+  const pendingSave = useRef<Promise<boolean> | null>(null)
+  const mounted = useRef(true)
 
   const lastSavedVersion = useRef<number>(0)
 
@@ -68,22 +57,15 @@ export default function ExcalidrawWrapper() {
     useState<ExcalidrawInitialDataState | null>(null)
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [loadError, setLoadError] = useState(false)
+  const [retry, setRetry] = useState(0)
 
-  const fallbackInitialData = useMemo<ExcalidrawInitialDataState>(() => {
-    const skeleton = [
-      { type: 'rectangle', x: 100, y: 100, width: 260, height: 120 },
-      { type: 'text', x: 130, y: 140, text: 'Hello world', fontSize: 34 },
-      { type: 'arrow', x: 160, y: 170, width: 140, height: 60 },
-    ] satisfies SceneElement[]
-
-    return {
-      elements: convertToExcalidrawElements(skeleton),
-      files: {} as BinaryFiles,
-      appState: {
-        viewBackgroundColor: '#ffffff',
-        theme: 'light',
-        collaborators: new Map(),
-      },
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      if (resetTimer.current) clearTimeout(resetTimer.current)
     }
   }, [])
 
@@ -100,7 +82,7 @@ export default function ExcalidrawWrapper() {
         })
 
         if (!res.ok) {
-          if (!cancelled) setInitialData(fallbackInitialData)
+          if (!cancelled) setLoadError(true)
           return
         }
 
@@ -114,25 +96,27 @@ export default function ExcalidrawWrapper() {
           lastSavedVersion.current = version
         }
       } catch {
-        if (!cancelled) setInitialData(fallbackInitialData)
+        if (!cancelled) setLoadError(true)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [boardId, USER_ID, API_BASE, fallbackInitialData])
+  }, [boardId, USER_ID, API_BASE, retry])
 
   // SAVE
   const saveScene = useCallback(async () => {
-    if (!apiRef.current || !boardId || !USER_ID) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    while (pendingSave.current) await pendingSave.current
+    if (!apiRef.current || !boardId || !USER_ID) return false
 
     const api = apiRef.current
     const elements = api.getSceneElements()
 
     const version = hashElementsVersion(elements)
 
-    if (version === lastSavedVersion.current) return
+    if (version === lastSavedVersion.current) return true
 
     const s = api.getAppState()
 
@@ -150,30 +134,52 @@ export default function ExcalidrawWrapper() {
 
     setSaveState('saving')
 
+    const task = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/boards/${boardId}/scene`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': USER_ID,
+          },
+          body: JSON.stringify(payload),
+        })
+
+        if (!res.ok) throw new Error()
+
+        lastSavedVersion.current = version
+        setSaveState('success')
+      } catch {
+        setSaveState('error')
+        return false
+      }
+
+      if (resetTimer.current) clearTimeout(resetTimer.current)
+
+      if (mounted.current) {
+        resetTimer.current = setTimeout(() => {
+          setSaveState((current) => (current === 'success' ? 'idle' : current))
+        }, 900)
+      }
+      return true
+    })()
+    pendingSave.current = task
     try {
-      const res = await fetch(`${API_BASE}/boards/${boardId}/scene`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': USER_ID,
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) throw new Error()
-
-      lastSavedVersion.current = version
-      setSaveState('success')
-    } catch {
-      setSaveState('error')
+      return await task
+    } finally {
+      pendingSave.current = null
     }
-
-    if (resetTimer.current) clearTimeout(resetTimer.current)
-
-    resetTimer.current = setTimeout(() => {
-      setSaveState('idle')
-    }, 900)
   }, [boardId, USER_ID, API_BASE])
+
+  useEffect(
+    () =>
+      registerGuard(async () => {
+        if (apiRef.current && !(await saveScene())) {
+          throw new Error('Could not save this board. Try again.')
+        }
+      }),
+    [registerGuard, saveScene]
+  )
 
   // AUTOSAVE
   const scheduleSave = useCallback(() => {
@@ -211,7 +217,19 @@ export default function ExcalidrawWrapper() {
   // UI BUTTONS
   const renderTopRightUI = useCallback(() => {
     return (
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {saveState !== 'idle' ? (
+          <span
+            role="status"
+            className={`rounded-md bg-black px-2 py-1 text-xs ${saveState === 'error' ? 'text-red-400' : 'text-neutral-300'}`}
+          >
+            {saveState === 'saving'
+              ? 'Saving…'
+              : saveState === 'success'
+                ? 'Saved'
+                : 'Save failed'}
+          </span>
+        ) : null}
         <button
           style={{
             padding: '6px 10px',
@@ -234,11 +252,10 @@ export default function ExcalidrawWrapper() {
             cursor: 'pointer',
           }}
           onClick={async () => {
-            await saveScene()
-            router.push('/public/dashboard')
+            if (await saveScene()) router.push('/public/dashboard')
           }}
         >
-          Dashboard
+          Boards
         </button>
 
         <button
@@ -250,46 +267,47 @@ export default function ExcalidrawWrapper() {
             cursor: 'pointer',
           }}
           onClick={async () => {
-            await saveScene()
-            router.push('/dashboard')
+            if (await saveScene()) router.push('/dashboard')
           }}
         >
-          Sign-In
+          Sign in
         </button>
       </div>
     )
-  }, [router, saveScene])
+  }, [router, saveScene, saveState])
+
+  if (loadError)
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-neutral-950 px-6 text-white">
+        <div className="text-center">
+          <p role="alert" className="text-sm text-neutral-300">
+            Could not load this board.
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5"
+              onClick={() => router.push('/public/dashboard')}
+            >
+              Back to boards
+            </button>
+            <button
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm hover:bg-violet-500"
+              onClick={() => {
+                setLoadError(false)
+                setRetry((current) => current + 1)
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </main>
+    )
 
   if (!initialData) return <LoadingPageNS />
 
-  const dotColor =
-    saveState === 'saving'
-      ? '#f59e0b'
-      : saveState === 'success'
-        ? '#22c55e'
-        : saveState === 'error'
-          ? '#ef4444'
-          : 'transparent'
-
   return (
     <div className="relative h-screen w-screen">
-      {/* subtle save indicator */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: dotColor,
-          opacity: saveState === 'idle' ? 0.15 : 1,
-          transition: 'all 0.25s ease',
-          pointerEvents: 'none',
-          zIndex: 100,
-        }}
-      />
-
       <Excalidraw
         initialData={initialData}
         excalidrawAPI={(api) => (apiRef.current = api)}

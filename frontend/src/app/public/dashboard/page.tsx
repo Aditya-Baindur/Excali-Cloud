@@ -28,6 +28,7 @@ export default function DashboardPage() {
 
   const [boards, setBoards] = React.useState<Board[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState('')
 
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
@@ -42,15 +43,19 @@ export default function DashboardPage() {
 
     try {
       setLoading(true)
+      setError('')
 
       const res = await fetch(`${API_BASE}/boards`, {
         headers: { 'x-user-id': USER_ID },
       })
+      if (!res.ok) throw new Error('Could not load demo boards.')
 
-      const data = await res.json()
+      const data = await res.json() as { boards?: Board[] }
       setBoards(data.boards ?? [])
     } catch (err) {
-      console.error('Failed to load boards:', err)
+      setError(
+        err instanceof Error ? err.message : 'Could not load demo boards.'
+      )
     } finally {
       setLoading(false)
     }
@@ -65,7 +70,7 @@ export default function DashboardPage() {
     if (!USER_ID) return
 
     if (boards.length >= MAX_BOARDS) {
-      alert('Maximum of 3 boards allowed.')
+      alert('Demo limit: 3 boards.')
       return
     }
 
@@ -74,6 +79,7 @@ export default function DashboardPage() {
 
     try {
       setCreating(true)
+      setError('')
 
       const res = await fetch(`${API_BASE}/boards`, {
         method: 'POST',
@@ -84,16 +90,16 @@ export default function DashboardPage() {
         body: JSON.stringify({ name: trimmed }),
       })
 
-      const data = await res.json()
+      const data = await res.json() as { boardId: string }
 
-      if (!res.ok) return
+      if (!res.ok) throw new Error('Could not create board.')
 
       setName('')
       setOpen(false)
 
       window.location.href = `/public/board/${data.boardId}`
     } catch (err) {
-      console.error('Create failed:', err)
+      setError(err instanceof Error ? err.message : 'Could not create board.')
     } finally {
       setCreating(false)
     }
@@ -101,16 +107,24 @@ export default function DashboardPage() {
 
   const deleteBoard = async (boardId: string) => {
     if (!USER_ID) return
+    if (
+      !window.confirm(
+        `Delete “${boards.find((board) => board.id === boardId)?.name ?? 'board'}”?`
+      )
+    )
+      return
 
     try {
-      await fetch(`${API_BASE}/boards/${boardId}`, {
+      setError('')
+      const res = await fetch(`${API_BASE}/boards/${boardId}`, {
         method: 'DELETE',
         headers: { 'x-user-id': USER_ID },
       })
+      if (!res.ok) throw new Error('Could not delete board.')
 
       loadBoards()
     } catch (err) {
-      console.error('Delete failed:', err)
+      setError(err instanceof Error ? err.message : 'Could not delete board.')
     }
   }
 
@@ -121,7 +135,8 @@ export default function DashboardPage() {
     if (!trimmed) return
 
     try {
-      await fetch(`${API_BASE}/boards/${renameBoardId}`, {
+      setError('')
+      const res = await fetch(`${API_BASE}/boards/${renameBoardId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -129,6 +144,7 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({ name: trimmed }),
       })
+      if (!res.ok) throw new Error('Could not rename board.')
 
       setRenameOpen(false)
       setRenameName('')
@@ -136,7 +152,7 @@ export default function DashboardPage() {
 
       loadBoards()
     } catch (err) {
-      console.error('Rename failed:', err)
+      setError(err instanceof Error ? err.message : 'Could not rename board.')
     }
   }
 
@@ -147,26 +163,46 @@ export default function DashboardPage() {
   const maxReached = boards.length >= MAX_BOARDS
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="dark min-h-screen bg-neutral-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-10">
         {/* HEADER */}
         <div className="mb-8 flex items-center gap-3">
           <LayoutGrid className="h-6 w-6 text-neutral-300" />
-          <h1 className="text-2xl font-semibold tracking-tight">Boards</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Demo boards</h1>
         </div>
+        {error && !open && !renameOpen ? (
+          <div
+            role="alert"
+            className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"
+          >
+            <span>{error}</span>
+            <button className="underline" onClick={() => void loadBoards()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
 
         {/* RENAME DIALOG */}
         <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-          <DialogContent className="border-white/10 bg-neutral-950 text-white">
+          <DialogContent
+            className="dark border-white/10 bg-neutral-950 text-white"
+            aria-describedby={undefined}
+          >
             <DialogHeader>
               <DialogTitle>Rename board</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-3">
+              {error ? (
+                <p role="alert" className="text-sm text-red-400">
+                  {error}
+                </p>
+              ) : null}
               <Input
                 value={renameName}
                 onChange={(e) => setRenameName(e.target.value)}
                 placeholder="New board name"
+                aria-label="Board name"
                 className="border-white/10 bg-white/[0.03]"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') renameBoard()
@@ -203,7 +239,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="text-sm font-medium">
-                      {maxReached ? 'Board limit reached' : 'Create board'}
+                      {maxReached ? '3-board demo limit' : 'New board'}
                     </div>
                   </div>
                 </Card>
@@ -211,16 +247,25 @@ export default function DashboardPage() {
             </DialogTrigger>
 
             {!maxReached && (
-              <DialogContent className="border-white/10 bg-neutral-950 text-white">
+              <DialogContent
+                className="dark border-white/10 bg-neutral-950 text-white"
+                aria-describedby={undefined}
+              >
                 <DialogHeader>
-                  <DialogTitle>Create a board</DialogTitle>
+                  <DialogTitle>New board</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-3">
+                  {error ? (
+                    <p role="alert" className="text-sm text-red-400">
+                      {error}
+                    </p>
+                  ) : null}
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Board name (e.g. Product brainstorm)"
+                    placeholder="Board name"
+                    aria-label="Board name"
                     className="border-white/10 bg-white/[0.03]"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') createBoard()
@@ -233,7 +278,7 @@ export default function DashboardPage() {
                     </Button>
 
                     <Button onClick={createBoard} disabled={creating}>
-                      {creating ? 'Creating...' : 'Create'}
+                      {creating ? 'Creating…' : 'Create'}
                     </Button>
                   </div>
                 </div>
@@ -242,9 +287,9 @@ export default function DashboardPage() {
           </Dialog>
 
           {/* EMPTY STATE */}
-          {boards.length === 0 ? (
+          {boards.length === 0 && !error ? (
             <div className="col-span-full text-sm text-neutral-400">
-              No boards yet. Create your first one.
+              No boards yet.
             </div>
           ) : (
             boards.map((b) => (
@@ -264,6 +309,7 @@ export default function DashboardPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label={`Rename ${b.name}`}
                           className="text-neutral-300 hover:text-white"
                           onClick={(e) => {
                             e.preventDefault()
@@ -280,6 +326,7 @@ export default function DashboardPage() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label={`Delete ${b.name}`}
                           className="text-neutral-300 hover:text-white"
                           onClick={(e) => {
                             e.preventDefault()

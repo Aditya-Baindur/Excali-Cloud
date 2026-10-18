@@ -1,0 +1,193 @@
+#video-editor-workspace .editor-inspector {
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  background: #0a0a0a;
+  color: #e5e5e5;
+  font-size: 12px;
+  color-scheme: dark;
+}
+#video-editor-workspace .editor-inspector-heading {
+  padding: 14px 16px;
+  border-bottom: 1px solid #ffffff12;
+}
+#video-editor-workspace .editor-inspector-heading h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+#video-editor-workspace .editor-inspector-section {
+  border-bottom: 1px solid #ffffff10;
+}
+#video-editor-workspace .editor-inspector-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  color: #d4d4d4;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+#video-editor-workspace .editor-inspector-section > summary::-webkit-details-marker {
+  display: none;
+}
+#video-editor-workspace .editor-inspector-section > summary svg {
+  color: #737373;
+  transform: rotate(-90deg);
+}
+#video-editor-workspace .editor-inspector-section[open] > summary svg {
+  transform: rotate(0);
+}
+#video-editor-workspace .editor-inspector-fields {
+  display: grid;
+  gap: 11px;
+  padding: 0 16px 16px;
+}
+#video-editor-workspace .editor-inspector-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#video-editor-workspace .editor-inspector-field > span {
+  color: #a3a3a3;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+#video-editor-workspace .editor-inspector-field-stack {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 6px;
+}
+#video-editor-workspace .editor-inspector
+  :is(
+    input:not([type='range']):not([type='checkbox']):not([type='color']),
+    select,
+    textarea
+  ) {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  border: 1px solid #ffffff12;
+  border-radius: 5px;
+  padding: 6px 7px;
+  background: #171717;
+  color: #e5e5e5;
+  font: inherit;
+}
+#video-editor-workspace .editor-inspector select {
+  width: 58%;
+}
+#video-editor-workspace .editor-inspector textarea {
+  resize: vertical;
+}
+#video-editor-workspace .editor-inspector-number {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 52%;
+  min-width: 0;
+}
+#video-editor-workspace .editor-inspector-number > span {
+  font-size: 10px;
+  color: #737373;
+}
+#video-editor-workspace .editor-inspector input[type='checkbox'] {
+  accent-color: #8b5cf6;
+  width: 14px;
+  height: 14px;
+}
+#video-editor-workspace .editor-inspector input[type='color'] {
+  width: 42px;
+  height: 26px;
+  border: 1px solid #ffffff20;
+  border-radius: 5px;
+  background: transparent;
+  padding: 2px;
+}
+#video-editor-workspace .editor-inspector input[type='range'] {
+  width: 100%;
+  height: 14px;
+  margin: 5px 0 0;
+  accent-color: #8b5cf6;
+}
+#video-editor-workspace .editor-inspector-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+#video-editor-workspace .editor-inspector-pair .editor-inspector-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+#video-editor-workspace .editor-inspector-pair .editor-inspector-number {
+  width: 100%;
+}
+#video-editor-workspace .editor-inspector-slider label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px;
+  color: #a3a3a3;
+  font-size: 11px;
+}
+#video-editor-workspace .editor-inspector-slider output {
+  color: #737373;
+  font-variant-numeric: tabular-nums;
+}
+#video-editor-workspace .editor-inspector-buttons {
+  display: flex;
+  gap: 5px;
+}
+#video-editor-workspace .editor-inspector-buttons button {
+  display: inline-flex;
+  min-height: 28px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid #ffffff12;
+  border-radius: 5px;
+  color: #bfbfbf;
+  background: #171717;
+  font-size: 10px;
+  cursor: pointer;
+}
+#video-editor-workspace .editor-inspector-buttons button:hover {
+  background: #252525;
+  color: white;
+}
+#video-editor-workspace .editor-inspector :is(button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+#video-editor-workspace .editor-inspector-transition {
+  display: grid;
+  gap: 9px;
+}
+#video-editor-workspace .editor-inspector-error {
+  margin: 12px 16px;
+  color: #fca5a5;
+  font-size: 11px;
+}
+#video-editor-workspace .editor-inspector
+  vf-editor.editor-inspector-advanced[data-theme][data-theme][data-theme] {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  --vf-font: var(--font-geist-sans), sans-serif;
+  --vf-radius-lg: 0;
+}
+#video-editor-workspace .editor-inspector-advanced vf-sidebar {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}

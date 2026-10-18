@@ -1,10 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import {
-  type DetectedRegion,
-  useAnalyticsConsent,
-} from './store/analytics-consent'
+import { useAnalyticsConsent } from './store/analytics-consent'
 
 const consentLabels = {
   unknown: 'No choice saved',
@@ -13,24 +10,13 @@ const consentLabels = {
 }
 
 const regionLabels = {
-  unknown: 'Region not detected yet',
-  required: 'Consent is required before analytics can load',
-  'not-required': 'Analytics may be enabled by default',
-}
-
-function formatDetectedRegion(region: DetectedRegion | null) {
-  if (!region?.country) return 'Region not detected yet'
-
-  const details = [region.city, region.colo].filter(Boolean)
-
-  if (!details.length) return region.country
-
-  return `${region.country} (${details.join(', ')})`
+  unknown: '',
+  required: 'Analytics requires your consent.',
+  'not-required': 'Analytics may be enabled by default.',
 }
 
 export function AnalyticsPreferences() {
-  const { consent, region, detectedRegion, setConsent, hydrate } =
-    useAnalyticsConsent()
+  const { consent, region, setConsent, hydrate } = useAnalyticsConsent()
 
   useEffect(() => {
     hydrate()
@@ -39,54 +25,37 @@ export function AnalyticsPreferences() {
   return (
     <section
       aria-labelledby="analytics-preferences"
-      className="mt-10 rounded-lg border border-zinc-300 bg-white p-5"
+      className="mt-10 rounded-xl border border-white/10 bg-neutral-950 p-5"
     >
-      <h2
-        id="analytics-preferences"
-        className="text-lg font-medium text-zinc-900"
-      >
-        Analytics Preferences
-      </h2>
-
-      <div className="mt-4 space-y-2 text-sm text-zinc-700">
-        <p>
-          Current analytics choice:{' '}
-          <span className="font-medium text-zinc-900">
-            {consentLabels[consent]}
-          </span>
-        </p>
-        <p>
-          Region behavior:{' '}
-          <span className="font-medium text-zinc-900">
-            {regionLabels[region]}
-          </span>
-        </p>
-        <p>
-          Detected region:{' '}
-          <span className="font-medium text-zinc-900">
-            {formatDetectedRegion(detectedRegion)}
-          </span>
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <h2 id="analytics-preferences" className="font-medium text-white">
+          Analytics
+        </h2>
+        <span role="status" className="text-sm text-neutral-400">
+          {consentLabels[consent]}
+        </span>
       </div>
-
+      {regionLabels[region] ? (
+        <p className="mt-2 text-sm text-neutral-400">{regionLabels[region]}</p>
+      ) : null}
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-md border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-sm text-white"
+          className="rounded-lg bg-violet-600 px-3 py-2 text-sm text-white hover:bg-violet-500"
           onClick={() => setConsent('granted')}
         >
           Allow analytics
         </button>
         <button
           type="button"
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm"
+          className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white hover:bg-white/5"
           onClick={() => setConsent('denied')}
         >
           Disable analytics
         </button>
         <button
           type="button"
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm"
+          className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white hover:bg-white/5"
           onClick={() => setConsent('unknown')}
         >
           Reset choice

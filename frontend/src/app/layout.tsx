@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
+import { getClerkConfig } from '@/lib/clerk-config'
 import './globals.css'
 import AnalyticsConsentProvider from '../components/analytics/AnalyticsConsent'
 import { AnalyticsToggle } from '../components/analytics/AnalyticsToggle'
 import ClarityProvider from '../components/analytics/ClarityConsent'
+import { BoardNavigationProvider } from '@/components/workspace/BoardCommandMenu'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,13 +29,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={getClerkConfig().publishableKey}>
       <html lang="en">
         <body
           className={`${geistSans.variable} ${geistMono.variable} bg-black text-white antialiased`}
         >
           <AnalyticsConsentProvider>
-            {children}
+            <BoardNavigationProvider>{children}</BoardNavigationProvider>
 
             <ClarityProvider />
             <AnalyticsToggle />

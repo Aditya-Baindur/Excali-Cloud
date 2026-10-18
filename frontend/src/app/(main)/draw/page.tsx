@@ -1,14 +1,5 @@
-'use client'
-import dynamic from 'next/dynamic'
-
-// Since client components get prerenderd on server as well hence importing
-// the excalidraw stuff dynamically with ssr false
-
-const ExcalidrawWrapper = dynamic(
-  async () => (await import('./excalidrawWrapper')).default,
-  { ssr: false }
-)
+import { redirect } from 'next/navigation'
 
 export default function Page() {
-  return <ExcalidrawWrapper />
+  redirect('/public/dashboard')
 }

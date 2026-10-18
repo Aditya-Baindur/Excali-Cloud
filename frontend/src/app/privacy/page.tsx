@@ -5,7 +5,7 @@ import { AnalyticsPreferences } from '@/components/analytics/AnalyticsPreference
 
 export const metadata: Metadata = {
   title: 'Privacy',
-  description: 'Privacy information for the Aditya Baindur personal portfolio.',
+  description: 'ExcaliCloud privacy and analytics preferences.',
   alternates: {
     canonical: '/privacy',
   },
@@ -25,16 +25,12 @@ export default function PrivacyPage() {
         <h1 className="mt-10 text-4xl font-medium tracking-tight">Privacy</h1>
 
         <div className="mt-8 space-y-5 text-sm leading-6 text-zinc-300">
-          <p>
-            This is a excalidraw. It may use Microsoft Clarity to understand
-            site usage and improve the site.
-          </p>
+          <p>ExcaliCloud may use Microsoft Clarity for analytics.</p>
 
           <p>
             Analytics tools may collect page views, interaction events,
             device/browser information, approximate location, and referrer data.
-            Analytics is used only to understand how the site is used and where
-            it can be improved.
+            This data is used only to improve the site.
           </p>
 
           <p>Analytics scripts are not loaded for private IP addresses.</p>
@@ -47,9 +43,8 @@ export default function PrivacyPage() {
           </p>
 
           <p>
-            You can allow analytics, disable analytics, or reset your saved
-            choice below. Resetting removes your saved choice so the site can
-            apply the current region behavior again on a future visit.
+            Resetting removes your saved choice. The site then applies its
+            current region behavior on a future visit.
           </p>
 
           <p>

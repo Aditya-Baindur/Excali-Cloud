@@ -1,0 +1,23 @@
+{
+  "$schema": "frontend/node_modules/wrangler/config-schema.json",
+  "name": "excali-cloud-app",
+  "main": "frontend/cloudflare/worker.ts",
+  "compatibility_date": "2026-10-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": { "binding": "ASSETS", "not_found_handling": "none" },
+  "observability": { "enabled": true },
+  "secrets": { "required": ["CLERK_SECRET_KEY"] },
+  "vars": {
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "",
+    "ALLOW_DEMO_AUTH": "true"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "excali-cloud-db",
+    "database_id": "00000000-0000-0000-0000-000000000000",
+    "migrations_dir": "excali-cloud/migrations"
+  }],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "excali-cloud-media" }]
+}

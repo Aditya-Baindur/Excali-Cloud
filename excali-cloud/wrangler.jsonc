@@ -3,32 +3,32 @@
   "name": "excali-cloud",
   "main": "src/index.ts",
   "compatibility_date": "2025-09-27",
-
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
   },
-
   "vars": {
-    "ALLOW_DEMO_AUTH": "true"
+    "ALLOW_DEMO_AUTH": "true",
+    "CLERK_ISSUER": "https://notable-honeybee-51.clerk.accounts.dev",
+    "CLERK_AUTHORIZED_PARTIES": "http://localhost:3000,http://127.0.0.1:3000,https://draw.adityabaindur.dev,https://www.collabboard.dev,https://collabboard.dev"
   },
-
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "excali_cloud_db",
       "database_id": "0db6b756-5acf-4d2f-b231-b08c368d4653",
-      "remote": true
+      "remote": false
     }
   ],
-
   "r2_buckets": [
     {
       "bucket_name": "excali-cloud-scenes",
       "binding": "BUCKET",
-      "remote": true
+      "remote": false
     }
   ],
-
   "routes": [
     {
       "pattern": "api.draw.adityabaindur.dev",
@@ -36,7 +36,6 @@
       "custom_domain": true
     }
   ],
-
   "workers_dev": false,
   "preview_urls": false
 }

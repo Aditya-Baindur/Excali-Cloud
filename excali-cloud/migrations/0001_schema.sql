@@ -1,4 +1,4 @@
--- schema.sql
+-- Initial schema. Safe to apply to databases initialized before migration tracking.
 
 CREATE TABLE IF NOT EXISTS boards (
   id TEXT PRIMARY KEY,

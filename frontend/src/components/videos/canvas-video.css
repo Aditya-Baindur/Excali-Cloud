@@ -1,0 +1,9 @@
+/* Uploaded video links identify scene assets; they are not navigation links. */
+.excalidraw-hyperlinkContainer:has(a[href^='https://board-video.invalid/']) {
+  display: none;
+}
+
+/* The video already provides a play affordance at the native activation point. */
+.excalidraw__embeddable-container:has(video) .excalidraw__embeddable-hint {
+  display: none;
+}
