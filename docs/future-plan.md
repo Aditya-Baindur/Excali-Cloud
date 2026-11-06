@@ -2,6 +2,14 @@
 
 Ideas agreed on but not built yet. Each one says why it's waiting.
 
+## AI thinking partner (agreed 2026-11-05, not built)
+
+- **A two-move Diverge instruction.** Add one sentence to the Diverge rule in `local/server/mcp.mjs`: *"For each focused idea, include a "10x:" branch (ten times better on the brief's problem, not 10% better) and a "Weak point:" branch (where it most likely breaks, plus one concrete fix). Beyond those two, explore however you judge best."* Keep it minimal so the AI stays free to be creative.
+- **AI clustering when Converge starts.** The AI groups similar notes, draws a labeled frame around each group and merges duplicates, without deleting anything. The tools to draw frames already exist, so this is mostly prompt work.
+- **A "How might we…" line in the brief.** Before anyone writes, the AI asks what problem the team is solving and what they want to have happen, then writes the answer as one "How might we…" line at the top of the brief. Every Diverge pass reads it.
+
+**Order when picked up:** the Diverge instruction first (one line plus a test), then clustering, then the brief line.
+
 ## Voting (deferred 2026-11-05)
 
 **For now the team votes out loud.** The three-vote feature that already exists stays as it is. Nothing new gets built for voting until spoken voting stops being enough.
