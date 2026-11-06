@@ -4,6 +4,7 @@ export function wins(candidate, current) {
 }
 
 const nonce = () => Math.floor(Math.random() * 2147483647)
+export const STICKY_SIZE = { width: 240, height: 155 }
 export function uid() {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
   bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128
@@ -46,7 +47,7 @@ export function makeElements(items) {
       })]
     }
     const shape = base(['rectangle', 'ellipse', 'diamond'].includes(item.type) ? item.type : 'rectangle', x, y,
-      item.width ?? (item.type === 'note' ? 240 : 280), item.height ?? Math.max(item.type === 'note' ? 200 : 150, text.split('\n').length * lineHeight + fontSize * 1.8), {
+      item.width ?? (item.type === 'note' ? STICKY_SIZE.width : 280), item.height ?? Math.max(item.type === 'note' ? STICKY_SIZE.height : 150, text.split('\n').length * lineHeight + fontSize * 1.8), {
         backgroundColor: item.type === 'note' ? '#e9e6ff' : '#f1f3f5',
         customData: { kind: item.type === 'note' ? 'idea' : 'system', ...(item.parentId ? { parentId: item.parentId } : {}) },
       })

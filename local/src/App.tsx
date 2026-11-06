@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Excalidraw, MainMenu, Footer, CaptureUpdateAction, restoreElements, serializeAsJSON, reconcileElements, viewportCoordsToSceneCoords } from '@excalidraw/excalidraw'
 import type { AppState, ExcalidrawImperativeAPI, ExcalidrawProps } from '@excalidraw/excalidraw/types'
 import '@excalidraw/excalidraw/index.css'
-import { makeElements, uid } from '../shared/scene.mjs'
+import { makeElements, uid, STICKY_SIZE } from '../shared/scene.mjs'
 import { LiveBoard, request, type Board } from './collaboration'
 import { fitSticky, fitNewStickies } from './sticky'
 
@@ -228,14 +228,14 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   function addNotes(texts: string[]) {
     const current = latest.current!
     const y = Math.max(0, ...current.elements.filter(e => !e.isDeleted).map(e => e.y + e.height)) + 90
-    return patch({ elements: fitNewStickies(restoreElements(makeElements(texts.map((text, i) => ({ type: 'note', text, x: i * 310, y, height: 200 }))) as any, null)) }, false)
+    return patch({ elements: fitNewStickies(restoreElements(makeElements(texts.map((text, i) => ({ type: 'note', text, x: i * 310, y, ...STICKY_SIZE }))) as any, null)) }, false)
   }
   function addSticky(text: string) {
     const canvas = apiRef.current
     if (!canvas) throw new Error('Wait for the canvas to finish opening')
     const state = canvas.getAppState()
     const center = stickyPosition.current ?? viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state)
-    const elements = fitNewStickies(restoreElements(makeElements([{ type: 'note', text, x: center.x - 120, y: center.y - 100, height: 200 }]) as any, null))
+    const elements = fitNewStickies(restoreElements(makeElements([{ type: 'note', text, x: center.x - STICKY_SIZE.width / 2, y: center.y - STICKY_SIZE.height / 2, ...STICKY_SIZE }]) as any, null))
     canvas.setActiveTool({ type: 'selection' })
     canvas.updateScene({ elements: [...canvas.getSceneElementsIncludingDeleted(), ...elements],
       appState: { selectedElementIds: { [elements[0].id]: true } }, captureUpdate: CaptureUpdateAction.IMMEDIATELY })
