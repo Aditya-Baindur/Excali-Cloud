@@ -15,7 +15,7 @@ Open <http://127.0.0.1:4318>. No Clerk or Cloudflare account is needed for local
 
 ## Brainstorm together
 
-Use the **☰** menu beside Night Crew to open or close the board list. Drag the left edge of the thinking panel to change its width; your browser remembers the size. You can still use **Hide panel** to clear it completely. With the resize edge focused, arrow keys adjust its width.
+Use the **☰** menu beside Night Crew to open or close the board list. Drag the left edge of the thinking panel to change its width; your browser remembers the size. Drag farther toward the right edge to collapse it completely. **Open panel** restores its width from before that drag. You can also use **Hide panel** to clear it. With the resize edge focused, arrow keys adjust its width.
 
 Create a Brainwriting board. In **Diverge**, each person can write in Private drafts, then reveal when ready. Drafts stay in that browser’s local storage until reveal; clearing browser storage removes them. Crazy 8s offers eight private slots and a shared eight-minute timer. You can also draw freely with Excalidraw. Problem framing and decision criteria are left to the team; they have no dedicated form fields.
 

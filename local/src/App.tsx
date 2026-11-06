@@ -327,7 +327,17 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
             resizeStart.current = { x: event.clientX, width: panelRoot.current!.getBoundingClientRect().width }
             event.currentTarget.setPointerCapture(event.pointerId)
           }}
-          onPointerMove={event => { if (resizeStart.current) resizePanel(resizeStart.current.width + resizeStart.current.x - event.clientX) }}
+          onPointerMove={event => {
+            const start = resizeStart.current
+            if (!start) return
+            const width = start.width + start.x - event.clientX
+            if (width < 120) {
+              resizeStart.current = null
+              event.currentTarget.releasePointerCapture(event.pointerId)
+              setPanelWidth(start.width)
+              setPanelOpen(false)
+            } else resizePanel(width)
+          }}
           onPointerUp={event => { resizeStart.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId) }}
           onPointerCancel={() => { resizeStart.current = null }}
           onKeyDown={event => {
