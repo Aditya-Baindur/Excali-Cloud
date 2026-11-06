@@ -15,11 +15,13 @@ Open <http://127.0.0.1:4318>. No Clerk or Cloudflare account is needed for local
 
 ## Brainstorm together
 
-Create a Brainwriting board. Frame the problem in **How might we…?** and add the vision/context. Start in **Diverge**: each person writes in Private drafts, then reveals when ready. Drafts stay in that browser’s local storage until reveal; clearing browser storage removes them. Crazy 8s offers eight private slots and a shared eight-minute timer. You can also draw freely with Excalidraw.
+Create a Brainwriting board. In **Diverge**, each person can write in Private drafts, then reveal when ready. Drafts stay in that browser’s local storage until reveal; clearing browser storage removes them. Crazy 8s offers eight private slots and a shared eight-minute timer. You can also draw freely with Excalidraw. Problem framing and decision criteria are left to the team; they have no dedicated form fields.
 
-Select an idea, several shapes, or the contents of a section, then choose **Diverge thinking**. It saves the selection as the board’s focus, switches to Diverge, and copies a request for your MCP-connected AI chat. Paste that request into the chat. Your AI can read the board, expand alternatives beside the originals, connect systems, and post its explanation in Shared discussion. No model or automatic AI response runs inside the webpage.
+Click **Sticky note**, write the idea and choose **Add sticky note**. It appears at the center of your current view. New notes and newly typed text scale to your creation zoom so they begin at a readable screen size. Existing objects keep their sizes as you zoom. The **− / +** controls change zoom without a percentage display.
 
-Switch to **Converge** when ready to compare. Write the criteria, select shapes to place up to three votes per browser session, and record the decision and next test. Votes help discussion; they are not an identity-verified election. Returning to Diverge keeps all ideas and votes. AI instructions change with the phase.
+Right-click an idea or a selection and choose **Diverge thinking** in the drawing menu. The toolbar has the same action. It saves the selection as the board’s focus, switches to Diverge, and copies a request for your MCP-connected AI chat. Paste that request into the chat. Your AI can read the board, expand alternatives beside the originals, connect systems, and post its explanation in Shared discussion. No model or automatic AI response runs inside the webpage.
+
+Switch to **Converge** when ready to compare. Select shapes to place up to three votes per browser session, and record the decision and next test. Votes help discussion; they are not an identity-verified election. Returning to Diverge keeps all ideas and votes. AI instructions change with the phase.
 
 ## Connect your AI through MCP
 

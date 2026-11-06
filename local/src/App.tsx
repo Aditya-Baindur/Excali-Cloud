@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Excalidraw, MainMenu, CaptureUpdateAction, restoreElements, serializeAsJSON, reconcileElements } from '@excalidraw/excalidraw'
-import type { ExcalidrawImperativeAPI, ExcalidrawProps } from '@excalidraw/excalidraw/types'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Excalidraw, MainMenu, Footer, CaptureUpdateAction, restoreElements, serializeAsJSON, reconcileElements, viewportCoordsToSceneCoords } from '@excalidraw/excalidraw'
+import type { AppState, ExcalidrawImperativeAPI, ExcalidrawProps } from '@excalidraw/excalidraw/types'
 import '@excalidraw/excalidraw/index.css'
 import { makeElements, uid } from '../shared/scene.mjs'
 import { LiveBoard, request, type Board } from './collaboration'
@@ -105,11 +106,15 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   const [panel, setPanel] = useState('session')
   const [panelOpen, setPanelOpen] = useState(true)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [stickyOpen, setStickyOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<AppState['contextMenu']>(null)
+  const canvasRoot = useRef<HTMLDivElement>(null)
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
   const liveRef = useRef<LiveBoard | null>(null)
   const applying = useRef(false)
   const fit = useRef(false)
+  const lastZoom = useRef<number | null>(null)
   const [note, setNote] = useState('')
   const [message, setMessage] = useState('')
   const [author, setAuthor] = useState(safeGet('night-crew-name') ?? 'Teammate')
@@ -131,8 +136,9 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
       const reconciled = reconcileElements(local, restored as any, canvas.getAppState())
       canvas.addFiles(Object.values(next.files))
       canvas.updateScene({ elements: reconciled, appState: { viewBackgroundColor: next.background }, captureUpdate: CaptureUpdateAction.NEVER })
-      if (!fit.current && reconciled.some(e => !e.isDeleted)) {
-        canvas.scrollToContent(reconciled, { fitToViewport: true, maxZoom: 0.8 }); fit.current = true
+      if (!fit.current) {
+        if (reconciled.some(e => !e.isDeleted)) canvas.scrollToContent(reconciled, { fitToViewport: true, maxZoom: 0.8 })
+        fit.current = true
       }
     } finally { applying.current = false }
   }
@@ -155,6 +161,12 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   const onChange: NonNullable<ExcalidrawProps['onChange']> = useCallback((elements, state, files) => {
     const ids = Object.keys(state.selectedElementIds).sort()
     setSelectedIds(previous => previous.join(',') === ids.join(',') ? previous : ids)
+    setContextMenu(previous => previous === state.contextMenu ? previous : state.contextMenu)
+    if (lastZoom.current !== state.zoom.value) {
+      lastZoom.current = state.zoom.value
+      // Size newly typed text in screen pixels; existing elements keep their scene size.
+      queueMicrotask(() => apiRef.current?.updateScene({ appState: { currentItemFontSize: 20 / state.zoom.value }, captureUpdate: CaptureUpdateAction.NEVER }))
+    }
     if (!applying.current && !state.isLoading) liveRef.current?.capture(elements, files, state.viewBackgroundColor)
   }, [])
 
@@ -183,12 +195,33 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   }
   function addNotes(texts: string[]) {
     const current = latest.current!
-    const y = Math.max(0, ...current.elements.filter(e => !e.isDeleted).map(e => e.y + e.height)) + 90
-    return patch({ elements: makeElements(texts.map((text, i) => ({ type: 'note', text, x: i * 310, y }))) }, false)
+    const zoom = apiRef.current?.getAppState().zoom.value ?? 1
+    const y = Math.max(0, ...current.elements.filter(e => !e.isDeleted).map(e => e.y + e.height)) + 90 / zoom
+    return patch({ elements: makeElements(texts.map((text, i) => ({ type: 'note', text, x: i * 310 / zoom, y, width: 280 / zoom, height: 200 / zoom, fontSize: 20 / zoom }))) }, false)
   }
-  async function divergeSelection() {
-    if (!selectedIds.length) throw new Error('Select an idea or a section on the canvas first')
-    const next = await patch({ session: { phase: 'diverge' }, focus: { elementIds: selectedIds, instruction: 'Diverge thinking: expand these ideas into distinct alternatives and connected systems. Preserve the originals. Do not rank or choose.' } })
+  function addSticky(text: string) {
+    const canvas = apiRef.current
+    if (!canvas) throw new Error('Wait for the canvas to finish opening')
+    const state = canvas.getAppState()
+    const center = viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state)
+    const scale = 1 / state.zoom.value
+    const elements = restoreElements(makeElements([{ type: 'note', text, x: center.x - 120 * scale, y: center.y - 120 * scale, width: 240 * scale, height: 240 * scale, fontSize: 20 * scale }]) as any, null)
+    canvas.setActiveTool({ type: 'selection' })
+    canvas.updateScene({ elements: [...canvas.getSceneElementsIncludingDeleted(), ...elements],
+      appState: { selectedElementIds: { [elements[0].id]: true } }, captureUpdate: CaptureUpdateAction.IMMEDIATELY })
+    setStickyOpen(false)
+  }
+  function changeZoom(factor: number) {
+    const canvas = apiRef.current
+    if (!canvas) return
+    const state = canvas.getAppState()
+    const center = viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state)
+    const value = Math.max(0.1, Math.min(30, state.zoom.value * factor)) as typeof state.zoom.value
+    canvas.updateScene({ appState: { zoom: { value }, scrollX: state.width / (2 * value) - center.x, scrollY: state.height / (2 * value) - center.y }, captureUpdate: CaptureUpdateAction.NEVER })
+  }
+  async function divergeSelection(ids = selectedIds) {
+    if (!ids.length) throw new Error('Select an idea or a section on the canvas first')
+    const next = await patch({ session: { phase: 'diverge' }, focus: { elementIds: ids, instruction: 'Diverge thinking: expand these ideas into distinct alternatives and connected systems. Preserve the originals. Do not rank or choose.' } })
     const prompt = `Use the night-crew MCP server. Read board ${boardId}. Its focus.elementIds contains my selection. We are in divergent mode. Expand these selected ideas into several distinct possibilities; ask one question if the vision is unclear. Add connected notes and architecture beside the originals. Do not rank, pick a winner, or delete originals. Post your reasoning with post_message. Current revision: ${next.revision}.`
     setAiRequest(prompt); setPanel('ai'); setPanelOpen(true)
     try { await navigator.clipboard.writeText(prompt); setStatus('Selection saved · AI request copied') }
@@ -215,6 +248,7 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     <div className="board-toolbar">
       <div className="board-heading"><h1>{board?.name ?? 'Opening board…'}</h1><span className="save-status" role="status">{status}</span></div>
       <div className="board-actions">
+        <button aria-label="Sticky note" disabled={!board || !api} onClick={() => setStickyOpen(true)} title="Add a sticky note in your current view">▧ Sticky note</button>
         <button className="diverge-button" disabled={!selectedIds.length} onClick={() => void action(divergeSelection)} title="Select an idea, then explore alternatives with AI">✧ Diverge thinking{selectedIds.length ? ` (${selectedIds.length})` : ''}</button>
         <button onClick={() => void action(exportScene)}>Export</button>
         {viewer.role === 'owner' && <button onClick={() => void action(copyInvite)}>Share</button>}
@@ -224,11 +258,18 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError('')}>Dismiss</button></div>}
     {shareLink && <div className="share-banner"><label>Board invite<input aria-label="Board invitation link" readOnly value={shareLink} onFocus={e => e.target.select()} /></label><p>Use your computer’s private network address in place of localhost when sharing. Run in LAN mode first. This link grants editing access to this board.</p><button onClick={() => setShareLink('')}>Close</button></div>}
     <div className="board-body">
-      <div className="canvas" data-testid="canvas">
+      <div className="canvas" data-testid="canvas" ref={canvasRoot}>
         <Excalidraw excalidrawAPI={setApi} onChange={onChange} theme="light" name={board?.name} isCollaborating={true}>
           <MainMenu><MainMenu.DefaultItems.Export /><MainMenu.DefaultItems.SaveAsImage /><MainMenu.DefaultItems.SearchMenu /><MainMenu.DefaultItems.Help /><MainMenu.DefaultItems.ChangeCanvasBackground /></MainMenu>
+          <Footer><div className="canvas-zoom" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => changeZoom(0.8)} disabled={!api}>−</button><button aria-label="Zoom in" onClick={() => changeZoom(1.25)} disabled={!api}>+</button></div></Footer>
         </Excalidraw>
         {!board && <div className="canvas-loading">Opening your saved board…</div>}
+        <div className="canvas-zoom mobile-zoom" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => changeZoom(0.8)} disabled={!api}>−</button><button aria-label="Zoom in" onClick={() => changeZoom(1.25)} disabled={!api}>+</button></div>
+        {api && <ContextDiverge menu={contextMenu} root={canvasRoot} enabled={selectedIds.length > 0} onDiverge={() => {
+          const ids = Object.keys(api.getAppState().selectedElementIds)
+          api.updateScene({ appState: { contextMenu: null }, captureUpdate: CaptureUpdateAction.NEVER })
+          void action(() => divergeSelection(ids))
+        }} />}
       </div>
       {panelOpen && board && <aside className="thinking-panel" aria-label="Thinking tools">
         <div className="panel-tabs" role="tablist">{[['session', 'Session'], ['drafts', 'Private drafts'], ['ai', 'AI partner']].map(([id, label]) => <button key={id} role="tab" aria-selected={panel === id} onClick={() => setPanel(id)}>{label}</button>)}</div>
@@ -236,15 +277,12 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
           {panel === 'session' && <>
             <div className="phase-control" aria-label="Thinking phase">{(['diverge', 'converge'] as const).map(phase => <button key={phase} className={board.session.phase === phase ? 'chosen' : ''} onClick={() => void action(() => patch({ session: { phase } }))}>{phase === 'diverge' ? 'Diverge' : 'Converge'}</button>)}</div>
             <p className="phase-help">{board.session.phase === 'diverge' ? 'Explore possibilities. Write privately first, then reveal and build on ideas. Save judgment for later.' : 'Compare ideas against your criteria. Each person has three votes. Record what you choose and what needs testing.'}</p>
-            <EditableText label="How might we…?" value={board.session.hmw} placeholder="Who are we helping, and what needs to change?" save={value => patch({ session: { hmw: value } })} />
-            <EditableText label="Vision and context" value={board.brief} placeholder="What should this system make possible?" save={value => patch({ brief: value })} />
             {board.session.phase === 'diverge' ? <>
               <div className="timer-row"><strong>Crazy 8s</strong><span>{remaining === null ? '8 ideas in 8 minutes' : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`}</span><button onClick={() => void action(() => patch({ session: { deadline: remaining === null ? Date.now() + 480000 : null } }))}>{remaining === null ? 'Start timer' : 'Clear'}</button></div>
               <button className="text-button" onClick={() => { setDrafts(d => [...d, ...Array(Math.max(0, 8 - d.length)).fill('')]); setPanel('drafts') }}>Open eight private idea slots</button>
               <label htmlFor="add-note">Add a shared idea</label><textarea id="add-note" value={note} onChange={e => setNote(e.target.value)} placeholder="An idea worth exploring…" maxLength={10000} />
               <button disabled={!note.trim()} onClick={() => void action(async () => { await addNotes([note.trim()]); setNote('') })}>Add idea to canvas</button>
             </> : <>
-              <EditableText label="Decision criteria" value={board.session.criteria} placeholder="What makes an idea useful, feasible or worth testing?" save={value => patch({ session: { criteria: value } })} />
               <div className="vote-box"><h3>Vote on selected ideas</h3><p>Select a shape on the canvas, then add or remove your vote.</p>{chosen.filter(e => e.type !== 'text').map(element => <button key={element.id} className={board.votes[viewer.voterId]?.includes(element.id) ? 'voted' : ''} onClick={() => void action(async () => { const next = await request<Board>(`/boards/${boardId}/vote`, { elementId: element.id }); liveRef.current?.accept(next) })}>{board.elements.find(e => e.containerId === element.id)?.text?.slice(0, 35) ?? element.type} · {totalVotes(element.id)} votes</button>)}{!chosen.length && <span className="subtle">No idea selected yet.</span>}</div>
               <EditableText label="Decision and next test" value={board.session.decision} placeholder="What did we choose? How will we test it?" save={value => patch({ session: { decision: value } })} />
             </>}
@@ -270,7 +308,36 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
         </div>
       </aside>}
     </div>
+    {stickyOpen && <StickyComposer onClose={() => setStickyOpen(false)} onAdd={addSticky} />}
   </main></DraftBoard.Provider>
+}
+
+function StickyComposer({ onClose, onAdd }: { onClose: () => void; onAdd: (text: string) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [text, setText] = useState('')
+  useEffect(() => { dialog.current?.showModal() }, [])
+  return <dialog ref={dialog} className="sticky-composer" aria-labelledby="sticky-title" onCancel={onClose}>
+    <form onSubmit={event => { event.preventDefault(); if (text.trim()) onAdd(text.trim()) }}>
+      <h2 id="sticky-title">New sticky note</h2>
+      <label>Sticky note text<textarea autoFocus value={text} onChange={event => setText(event.target.value)} maxLength={10000} placeholder="One idea to build on…" /></label>
+      <div className="button-row"><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={!text.trim()}>Add sticky note</button></div>
+    </form>
+  </dialog>
+}
+
+function ContextDiverge({ menu, root, enabled, onDiverge }: { menu: AppState['contextMenu']; root: React.RefObject<HTMLDivElement | null>; enabled: boolean; onDiverge: () => void }) {
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  // Excalidraw 0.18.1 has no custom-menu prop. Keep its hit testing and commands;
+  // portal only our row into its menu. Recheck this selector when upgrading it.
+  useLayoutEffect(() => { setHost(menu ? root.current?.querySelector<HTMLElement>('.context-menu') ?? null : null) }, [menu, root])
+  useLayoutEffect(() => {
+    if (!host || !enabled) return
+    const popover = host.closest<HTMLElement>('.popover')
+    if (!popover) return
+    const bounds = popover.getBoundingClientRect()
+    if (bounds.bottom > window.innerHeight - 8) popover.style.top = `${Math.max(8, parseFloat(popover.style.top || '0') - (bounds.bottom - window.innerHeight + 8))}px`
+  }, [host, enabled])
+  return menu && host && enabled ? createPortal(<li className="diverge-context-row"><button type="button" aria-label="Diverge thinking" className="context-menu-item" onClick={onDiverge}><span className="context-menu-item__label">✧ Diverge thinking</span></button></li>, host) : null
 }
 
 function EditableText({ label, value, placeholder, save }: { label: string; value: string; placeholder: string; save: (value: string) => Promise<unknown> }) {

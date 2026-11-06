@@ -36,21 +36,23 @@ function wrapped(text, columns = 27) {
 export function makeElements(items) {
   return items.flatMap((item, i) => {
     const x = item.x ?? (i % 3) * 310; const y = item.y ?? Math.floor(i / 3) * 210
+    const fontSize = item.fontSize ?? 20
+    const lineHeight = fontSize * 1.25
     const text = wrapped(item.text ?? '', item.type === 'text' ? 55 : 27)
     if (item.type === 'text') {
-      return [base('text', x, y, Math.max(40, ...text.split('\n').map(s => s.length * 11)), text.split('\n').length * 25, {
-        text, originalText: item.text, fontSize: 20, fontFamily: 2, textAlign: 'left',
+      return [base('text', x, y, Math.max(40, ...text.split('\n').map(s => s.length * fontSize * 0.55)), text.split('\n').length * lineHeight, {
+        text, originalText: item.text, fontSize, fontFamily: 2, textAlign: 'left',
         verticalAlign: 'top', containerId: null, autoResize: true, lineHeight: 1.25,
       })]
     }
     const shape = base(['rectangle', 'ellipse', 'diamond'].includes(item.type) ? item.type : 'rectangle', x, y,
-      item.width ?? 280, item.height ?? Math.max(150, text.split('\n').length * 25 + 36), {
+      item.width ?? 280, item.height ?? Math.max(150, text.split('\n').length * lineHeight + fontSize * 1.8), {
         backgroundColor: item.type === 'note' ? '#e9e6ff' : '#f1f3f5',
         customData: { kind: item.type === 'note' ? 'idea' : 'system', ...(item.parentId ? { parentId: item.parentId } : {}) },
       })
     if (!text) return [shape]
-    const label = base('text', x + 16, y + 18, shape.width - 32, text.split('\n').length * 25, {
-      text, originalText: item.text, fontSize: 20, fontFamily: 2, textAlign: 'left',
+    const label = base('text', x + fontSize * 0.8, y + fontSize * 0.9, shape.width - fontSize * 1.6, text.split('\n').length * lineHeight, {
+      text, originalText: item.text, fontSize, fontFamily: 2, textAlign: 'left',
       verticalAlign: 'middle', containerId: shape.id, autoResize: false, lineHeight: 1.25,
     })
     shape.boundElements = [{ id: label.id, type: 'text' }]
