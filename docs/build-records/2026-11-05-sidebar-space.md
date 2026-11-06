@@ -1,0 +1,8 @@
+# Collapsible board navigation and resizable thinking panel
+
+- [REQUEST] User wants more canvas space: a three-line menu that opens/closes the left sidebar, plus a draggable right sidebar retaining its hide action.
+- [DESIGN] Show a dedicated header menu toggle on every screen size. Start navigation open on the empty home screen and closed when opening a board. Add a pointer-captured resize separator on the thinking panel's left edge, keyboard arrows/Home/End, bounded widths and remembered browser preference. Preserve mobile overlay behavior.
+- [PRIOR ART] Adopt the WAI-ARIA window splitter pattern for separator orientation, accessible value and keyboard movement: https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/. Reuse React pointer events; no split-pane dependency needed.
+- [DONE BAR] Left toggle opens/closes and changes actual canvas width on desktop. Dragging the right edge changes panel/canvas widths, persists after hide/show/reload, respects bounds, and supports keyboard movement. Existing board content and drawing controls remain usable on mobile.
+- [IMPLEMENTED] Dedicated hamburger toggles navigation on desktop and mobile. Thinking panel has a pointer-captured resize edge, keyboard controls, 240–640px preferred width constrained by available space, and local browser persistence. Existing hide/show remains available.
+- [VERIFIED] Typecheck and production build passed. All 7 browser regressions and 12 server/MCP tests passed. New browser regression covers canvas width recovery, drag, keyboard bounds, hide/show, reload persistence and mobile menu. Desktop/mobile screenshots inspected. README voice scan and git diff whitespace check passed.

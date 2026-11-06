@@ -21,7 +21,7 @@ export default function App() {
   const [boards, setBoards] = useState<{ id: string; name: string }[]>([])
   const [boardId, setBoardId] = useState(new URLSearchParams(location.search).get('board') ?? '')
   const [error, setError] = useState('')
-  const [navOpen, setNavOpen] = useState(false)
+  const [navOpen, setNavOpen] = useState(() => !new URLSearchParams(location.search).get('board'))
   const [name, setName] = useState('')
   const [template, setTemplate] = useState('brainwriting')
   const [busy, setBusy] = useState(false)
@@ -72,12 +72,12 @@ export default function App() {
   }
   return <div className="workspace">
     <header className="app-header">
-      <button className="wordmark" onClick={() => setNavOpen(!navOpen)} aria-label="Toggle boards"><span className="logo" aria-hidden="true">◈</span> Night Crew <span className="subtle">workspace</span></button>
+      <div className="header-brand"><button className="boards-toggle" onClick={() => setNavOpen(!navOpen)} aria-label="Toggle boards" aria-expanded={navOpen} aria-controls="boards-nav"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button><div className="wordmark"><span className="logo" aria-hidden="true">◈</span> Night Crew <span className="subtle">workspace</span></div></div>
       <span className="local-label">Files stay on this computer</span>
     </header>
     {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
     <div className="workspace-body">
-      <nav className={`board-nav ${navOpen ? 'open' : ''}`} aria-label="Saved boards">
+      <nav id="boards-nav" className={`board-nav ${navOpen ? 'open' : ''}`} aria-label="Saved boards">
         <div className="nav-title"><h2>Boards</h2><button className="mobile-close" onClick={() => setNavOpen(false)}>Close</button></div>
         {!session ? <p>Connecting to your workspace…</p> : session.role === 'guest' ? <p>You’re here by invitation. This session can access only the shared board.</p> : <>
           <div className="board-list">{boards.map(board => <button key={board.id} className={board.id === boardId ? 'active' : ''} onClick={() => open(board.id)}>{board.name}</button>)}</div>
@@ -106,6 +106,18 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   const [error, setError] = useState('')
   const [panel, setPanel] = useState('session')
   const [panelOpen, setPanelOpen] = useState(true)
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = Number(safeGet('night-crew-panel-width'))
+    return Number.isFinite(saved) && saved >= 240 ? Math.min(640, saved) : 330
+  })
+  const resizeStart = useRef<{ x: number; width: number } | null>(null)
+  const panelRoot = useRef<HTMLElement>(null)
+  function maxPanelWidth() {
+    const available = panelRoot.current?.parentElement?.clientWidth ?? window.innerWidth
+    return Math.max(240, Math.min(640, window.innerWidth <= 650 ? window.innerWidth * .92 : available - 240))
+  }
+  function resizePanel(width: number) { setPanelWidth(Math.max(240, Math.min(maxPanelWidth(), width))) }
+  useEffect(() => safeSet('night-crew-panel-width', String(panelWidth)), [panelWidth])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [stickyOpen, setStickyOpen] = useState(false)
   const stickyPosition = useRef<{ x: number; y: number } | null>(null)
@@ -307,7 +319,23 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
           void action(() => divergeSelection(ids))
         }} />}
       </div>
-      {panelOpen && board && <aside className="thinking-panel" aria-label="Thinking tools">
+      {panelOpen && board && <aside ref={panelRoot} id="thinking-panel" className="thinking-panel" aria-label="Thinking tools" style={{ '--panel-width': `${panelWidth}px` } as React.CSSProperties}>
+        <div className="panel-resizer" role="separator" tabIndex={0} aria-label="Resize thinking panel" aria-orientation="vertical" aria-controls="thinking-panel" aria-valuemin={240} aria-valuemax={640} aria-valuenow={panelWidth} title="Drag to resize, or use the arrow keys"
+          onPointerDown={event => {
+            if (event.button !== 0) return
+            event.preventDefault()
+            resizeStart.current = { x: event.clientX, width: panelRoot.current!.getBoundingClientRect().width }
+            event.currentTarget.setPointerCapture(event.pointerId)
+          }}
+          onPointerMove={event => { if (resizeStart.current) resizePanel(resizeStart.current.width + resizeStart.current.x - event.clientX) }}
+          onPointerUp={event => { resizeStart.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId) }}
+          onPointerCancel={() => { resizeStart.current = null }}
+          onKeyDown={event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter'].includes(event.key)) return
+            event.preventDefault()
+            if (event.key === 'Enter') setPanelOpen(false)
+            else resizePanel(event.key === 'Home' ? 240 : event.key === 'End' ? maxPanelWidth() : panelRoot.current!.getBoundingClientRect().width + (event.key === 'ArrowLeft' ? 20 : -20))
+          }} />
         <div className="panel-tabs" role="tablist">{[['session', 'Session'], ['drafts', 'Private drafts'], ['ai', 'AI partner']].map(([id, label]) => <button key={id} role="tab" aria-selected={panel === id} onClick={() => setPanel(id)}>{label}</button>)}</div>
         <div className="panel-content" role="tabpanel">
           {panel === 'session' && <>

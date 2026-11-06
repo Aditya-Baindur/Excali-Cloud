@@ -15,6 +15,8 @@ Open <http://127.0.0.1:4318>. No Clerk or Cloudflare account is needed for local
 
 ## Brainstorm together
 
+Use the **☰** menu beside Night Crew to open or close the board list. Drag the left edge of the thinking panel to change its width; your browser remembers the size. You can still use **Hide panel** to clear it completely. With the resize edge focused, arrow keys adjust its width.
+
 Create a Brainwriting board. In **Diverge**, each person can write in Private drafts, then reveal when ready. Drafts stay in that browser’s local storage until reveal; clearing browser storage removes them. Crazy 8s offers eight private slots and a shared eight-minute timer. You can also draw freely with Excalidraw. Problem framing and decision criteria are left to the team; they have no dedicated form fields.
 
 Right-click the canvas and choose **Add sticky note** to place an idea where you clicked, including on Brainwriting boards. You can also use the **Sticky note** icon in the drawing toolbar beside the shape tools to place one at the center of your current view. Write the idea and choose **Add sticky note**. Stickies start at 240 × 155 canvas units regardless of zoom. Longer text grows them in both directions, keeping them close to square. You can resize them manually; editing respects that size as the minimum. Newly typed free text retains its zoom-aware sizing. The **− / +** controls change zoom without a percentage display.
