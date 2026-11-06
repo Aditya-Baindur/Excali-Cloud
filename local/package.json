@@ -1,0 +1,30 @@
+{
+  "name": "excali-cloud-local",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "dev": "node server/start.mjs --dev",
+    "start": "node server/start.mjs",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "mcp": "node server/mcp.mjs",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "ws": "8.22.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.6"
+  }
+}
