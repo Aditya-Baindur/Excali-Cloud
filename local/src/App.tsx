@@ -107,6 +107,8 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   const [panelOpen, setPanelOpen] = useState(true)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [stickyOpen, setStickyOpen] = useState(false)
+  const stickyPosition = useRef<{ x: number; y: number } | null>(null)
+  const contextPosition = useRef<{ x: number; y: number } | null>(null)
   const [contextMenu, setContextMenu] = useState<AppState['contextMenu']>(null)
   const canvasRoot = useRef<HTMLDivElement>(null)
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
@@ -203,7 +205,7 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     const canvas = apiRef.current
     if (!canvas) throw new Error('Wait for the canvas to finish opening')
     const state = canvas.getAppState()
-    const center = viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state)
+    const center = stickyPosition.current ?? viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state)
     const scale = 1 / state.zoom.value
     const elements = restoreElements(makeElements([{ type: 'note', text, x: center.x - 120 * scale, y: center.y - 120 * scale, width: 240 * scale, height: 240 * scale, fontSize: 20 * scale }]) as any, null)
     canvas.setActiveTool({ type: 'selection' })
@@ -248,7 +250,6 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     <div className="board-toolbar">
       <div className="board-heading"><h1>{board?.name ?? 'Opening board…'}</h1><span className="save-status" role="status">{status}</span></div>
       <div className="board-actions">
-        <button aria-label="Sticky note" disabled={!board || !api} onClick={() => setStickyOpen(true)} title="Add a sticky note in your current view">▧ Sticky note</button>
         <button className="diverge-button" disabled={!selectedIds.length} onClick={() => void action(divergeSelection)} title="Select an idea, then explore alternatives with AI">✧ Diverge thinking{selectedIds.length ? ` (${selectedIds.length})` : ''}</button>
         <button onClick={() => void action(exportScene)}>Export</button>
         {viewer.role === 'owner' && <button onClick={() => void action(copyInvite)}>Share</button>}
@@ -258,14 +259,21 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError('')}>Dismiss</button></div>}
     {shareLink && <div className="share-banner"><label>Board invite<input aria-label="Board invitation link" readOnly value={shareLink} onFocus={e => e.target.select()} /></label><p>Use your computer’s private network address in place of localhost when sharing. Run in LAN mode first. This link grants editing access to this board.</p><button onClick={() => setShareLink('')}>Close</button></div>}
     <div className="board-body">
-      <div className="canvas" data-testid="canvas" ref={canvasRoot}>
+      <div className="canvas" data-testid="canvas" ref={canvasRoot} onContextMenuCapture={event => {
+        if (event.target instanceof HTMLCanvasElement && api) contextPosition.current = viewportCoordsToSceneCoords({ clientX: event.clientX, clientY: event.clientY }, api.getAppState())
+      }}>
         <Excalidraw excalidrawAPI={setApi} onChange={onChange} theme="light" name={board?.name} isCollaborating={true}>
           <MainMenu><MainMenu.DefaultItems.Export /><MainMenu.DefaultItems.SaveAsImage /><MainMenu.DefaultItems.SearchMenu /><MainMenu.DefaultItems.Help /><MainMenu.DefaultItems.ChangeCanvasBackground /></MainMenu>
           <Footer><div className="canvas-zoom" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => changeZoom(0.8)} disabled={!api}>−</button><button aria-label="Zoom in" onClick={() => changeZoom(1.25)} disabled={!api}>+</button></div></Footer>
         </Excalidraw>
         {!board && <div className="canvas-loading">Opening your saved board…</div>}
+        {api && <DrawingStickyTool root={canvasRoot} onAdd={() => { stickyPosition.current = null; setStickyOpen(true) }} />}
         <div className="canvas-zoom mobile-zoom" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => changeZoom(0.8)} disabled={!api}>−</button><button aria-label="Zoom in" onClick={() => changeZoom(1.25)} disabled={!api}>+</button></div>
-        {api && <ContextDiverge menu={contextMenu} root={canvasRoot} enabled={selectedIds.length > 0} onDiverge={() => {
+        {api && <CanvasContextActions menu={contextMenu} root={canvasRoot} enabled={selectedIds.length > 0} onAddSticky={() => {
+          stickyPosition.current = contextPosition.current
+          api.updateScene({ appState: { contextMenu: null }, captureUpdate: CaptureUpdateAction.NEVER })
+          setStickyOpen(true)
+        }} onDiverge={() => {
           const ids = Object.keys(api.getAppState().selectedElementIds)
           api.updateScene({ appState: { contextMenu: null }, captureUpdate: CaptureUpdateAction.NEVER })
           void action(() => divergeSelection(ids))
@@ -325,19 +333,41 @@ function StickyComposer({ onClose, onAdd }: { onClose: () => void; onAdd: (text:
   </dialog>
 }
 
-function ContextDiverge({ menu, root, enabled, onDiverge }: { menu: AppState['contextMenu']; root: React.RefObject<HTMLDivElement | null>; enabled: boolean; onDiverge: () => void }) {
+function DrawingStickyTool({ root, onAdd }: { root: React.RefObject<HTMLDivElement | null>; onAdd: () => void }) {
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    const container = root.current
+    if (!container) return
+    // The pinned editor has no custom-shape-toolbar slot; follow toolbar remounts.
+    const findToolbar = () => setHost(container.querySelector<HTMLElement>('.App-toolbar > .Stack'))
+    findToolbar()
+    const observer = new MutationObserver(findToolbar)
+    observer.observe(container, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [root])
+  return host ? createPortal(<button className="sticky-tool" aria-label="Sticky note" title="Sticky note" onClick={onAdd}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v10l-6 6H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M15 21v-4a2 2 0 0 1 2-2h4M7 8h10M7 12h6"/></svg></button>, host) : null
+}
+
+function CanvasContextActions({ menu, root, enabled, onAddSticky, onDiverge }: { menu: AppState['contextMenu']; root: React.RefObject<HTMLDivElement | null>; enabled: boolean; onAddSticky: () => void; onDiverge: () => void }) {
   const [host, setHost] = useState<HTMLElement | null>(null)
   // Excalidraw 0.18.1 has no custom-menu prop. Keep its hit testing and commands;
-  // portal only our row into its menu. Recheck this selector when upgrading it.
+  // portal only our rows into its menu. Recheck this selector when upgrading it.
   useLayoutEffect(() => { setHost(menu ? root.current?.querySelector<HTMLElement>('.context-menu') ?? null : null) }, [menu, root])
   useLayoutEffect(() => {
-    if (!host || !enabled) return
+    if (!host) return
     const popover = host.closest<HTMLElement>('.popover')
     if (!popover) return
+    const viewport = root.current?.getBoundingClientRect()
+    if (!viewport) return
+    popover.style.maxHeight = `${viewport.height - 16}px`
+    popover.style.overflowY = 'auto'
     const bounds = popover.getBoundingClientRect()
-    if (bounds.bottom > window.innerHeight - 8) popover.style.top = `${Math.max(8, parseFloat(popover.style.top || '0') - (bounds.bottom - window.innerHeight + 8))}px`
+    const dx = Math.min(0, viewport.right - 8 - bounds.right) + Math.max(0, viewport.left + 8 - bounds.left)
+    const dy = Math.min(0, viewport.bottom - 8 - bounds.bottom) + Math.max(0, viewport.top + 8 - bounds.top)
+    popover.style.left = `${parseFloat(popover.style.left || '0') + dx}px`
+    popover.style.top = `${parseFloat(popover.style.top || '0') + dy}px`
   }, [host, enabled])
-  return menu && host && enabled ? createPortal(<li className="diverge-context-row"><button type="button" aria-label="Diverge thinking" className="context-menu-item" onClick={onDiverge}><span className="context-menu-item__label">✧ Diverge thinking</span></button></li>, host) : null
+  return menu && host ? createPortal(<><li className="diverge-context-row"><button type="button" className="context-menu-item" onClick={onAddSticky}><span className="context-menu-item__label">Add sticky note</span></button></li>{enabled && <li><button type="button" aria-label="Diverge thinking" className="context-menu-item" onClick={onDiverge}><span className="context-menu-item__label">✧ Diverge thinking</span></button></li>}</>, host) : null
 }
 
 function EditableText({ label, value, placeholder, save }: { label: string; value: string; placeholder: string; save: (value: string) => Promise<unknown> }) {

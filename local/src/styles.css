@@ -5,3 +5,7 @@
 .canvas .zoom-actions{display:none!important}.canvas-zoom{display:flex;gap:6px;padding:4px;border-radius:15px;background:white;box-shadow:0 2px 10px #30334418}.canvas-zoom button{border:0;background:transparent;width:42px;height:38px;padding:0;font-size:24px;color:#303344;border-radius:10px}
 
 .mobile-zoom{display:none}@media(max-width:650px){.mobile-zoom{position:absolute;display:flex;bottom:74px;left:16px;z-index:5}}
+
+.canvas{overflow:clip}.sticky-tool{width:36px;height:36px;padding:0;display:grid;place-items:center;flex-shrink:0;border:0;border-radius:8px;background:transparent;color:#343a40}.sticky-tool:hover{background:#ece7ff}
+
+.canvas .excalidraw{overflow:clip}
