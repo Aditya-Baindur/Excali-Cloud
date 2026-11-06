@@ -5,6 +5,7 @@ import type { AppState, ExcalidrawImperativeAPI, ExcalidrawProps } from '@excali
 import '@excalidraw/excalidraw/index.css'
 import { makeElements, uid } from '../shared/scene.mjs'
 import { LiveBoard, request, type Board } from './collaboration'
+import { fitSticky, fitNewStickies } from './sticky'
 
 function download(name: string, data: string, type = 'application/json') {
   const url = URL.createObjectURL(new Blob([data], { type }))
@@ -117,6 +118,8 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   const applying = useRef(false)
   const fit = useRef(false)
   const lastZoom = useRef<number | null>(null)
+  const stickySizes = useRef(new Map<string, { width: number; height: number }>())
+  const stickyEdit = useRef<{ id: string; width: number; height: number; text: string } | null>(null)
   const [note, setNote] = useState('')
   const [message, setMessage] = useState('')
   const [author, setAuthor] = useState(safeGet('night-crew-name') ?? 'Teammate')
@@ -169,6 +172,33 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
       // Size newly typed text in screen pixels; existing elements keep their scene size.
       queueMicrotask(() => apiRef.current?.updateScene({ appState: { currentItemFontSize: 20 / state.zoom.value }, captureUpdate: CaptureUpdateAction.NEVER }))
     }
+    const edited = state.editingTextElement
+    const note = edited?.type === 'text' && elements.find(element => element.id === edited.containerId && element.customData?.kind === 'idea')
+    if (edited && note) {
+      if (stickyEdit.current?.id !== edited.id) stickyEdit.current = { id: edited.id, ...(stickySizes.current.get(note.id) ?? { width: note.width, height: note.height }), text: '' }
+      const baseline = stickyEdit.current
+      const label = elements.find(element => element.id === edited.id)
+      const text = label?.type === 'text' ? label.originalText : ''
+      if (baseline.text !== text) {
+        baseline.text = text
+        queueMicrotask(() => {
+          const canvas = apiRef.current
+          if (!canvas || canvas.getAppState().editingTextElement?.id !== baseline.id) return
+          const fitted = fitSticky(canvas.getSceneElementsIncludingDeleted(), baseline.id, baseline)
+          if (fitted) canvas.updateScene({ elements: fitted, captureUpdate: CaptureUpdateAction.EVENTUALLY })
+        })
+      }
+    } else if (stickyEdit.current) {
+      const baseline = stickyEdit.current
+      stickyEdit.current = null
+      queueMicrotask(() => {
+        const canvas = apiRef.current
+        if (!canvas) return
+        const fitted = fitSticky(canvas.getSceneElementsIncludingDeleted(), baseline.id, baseline)
+        if (fitted) canvas.updateScene({ elements: fitted, captureUpdate: CaptureUpdateAction.EVENTUALLY })
+      })
+    }
+    for (const element of elements) if (element.customData?.kind === 'idea') stickySizes.current.set(element.id, { width: element.width, height: element.height })
     if (!applying.current && !state.isLoading) liveRef.current?.capture(elements, files, state.viewBackgroundColor)
   }, [])
 
@@ -197,17 +227,15 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   }
   function addNotes(texts: string[]) {
     const current = latest.current!
-    const zoom = apiRef.current?.getAppState().zoom.value ?? 1
-    const y = Math.max(0, ...current.elements.filter(e => !e.isDeleted).map(e => e.y + e.height)) + 90 / zoom
-    return patch({ elements: makeElements(texts.map((text, i) => ({ type: 'note', text, x: i * 310 / zoom, y, width: 280 / zoom, height: 200 / zoom, fontSize: 20 / zoom }))) }, false)
+    const y = Math.max(0, ...current.elements.filter(e => !e.isDeleted).map(e => e.y + e.height)) + 90
+    return patch({ elements: fitNewStickies(restoreElements(makeElements(texts.map((text, i) => ({ type: 'note', text, x: i * 310, y, height: 200 }))) as any, null)) }, false)
   }
   function addSticky(text: string) {
     const canvas = apiRef.current
     if (!canvas) throw new Error('Wait for the canvas to finish opening')
     const state = canvas.getAppState()
     const center = stickyPosition.current ?? viewportCoordsToSceneCoords({ clientX: state.offsetLeft + state.width / 2, clientY: state.offsetTop + state.height / 2 }, state)
-    const scale = 1 / state.zoom.value
-    const elements = restoreElements(makeElements([{ type: 'note', text, x: center.x - 120 * scale, y: center.y - 120 * scale, width: 240 * scale, height: 240 * scale, fontSize: 20 * scale }]) as any, null)
+    const elements = fitNewStickies(restoreElements(makeElements([{ type: 'note', text, x: center.x - 120, y: center.y - 100, height: 200 }]) as any, null))
     canvas.setActiveTool({ type: 'selection' })
     canvas.updateScene({ elements: [...canvas.getSceneElementsIncludingDeleted(), ...elements],
       appState: { selectedElementIds: { [elements[0].id]: true } }, captureUpdate: CaptureUpdateAction.IMMEDIATELY })
