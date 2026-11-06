@@ -61,9 +61,15 @@ export function makeElements(items) {
   })
 }
 
+// Leaves from the side facing the target: left/right when the target is mostly beside it, top/bottom when mostly above or below.
 export function connectElements(from, to) {
-  const x = from.x + from.width; const y = from.y + from.height / 2
-  const dx = to.x - x; const dy = to.y + to.height / 2 - y
+  const cx = e => e.x + e.width / 2, cy = e => e.y + e.height / 2
+  const across = Math.abs(cx(to) - cx(from)) >= Math.abs(cy(to) - cy(from))
+  const sign = across ? Math.sign(cx(to) - cx(from)) || 1 : Math.sign(cy(to) - cy(from)) || 1
+  const x = across ? cx(from) + sign * from.width / 2 : cx(from)
+  const y = across ? cy(from) : cy(from) + sign * from.height / 2
+  const dx = (across ? cx(to) - sign * to.width / 2 : cx(to)) - x
+  const dy = (across ? cy(to) : cy(to) - sign * to.height / 2) - y
   return base('arrow', x, y, Math.abs(dx), Math.abs(dy), {
     points: [[0, 0], [dx, dy]], startBinding: { elementId: from.id, focus: 0, gap: 8 },
     endBinding: { elementId: to.id, focus: 0, gap: 8 },

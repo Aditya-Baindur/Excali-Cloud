@@ -106,11 +106,12 @@ test('real MCP client edits the board seen by a live observer and stale writes f
     arguments: { boardId, expectedRevision: 0, updates: [{ id: first.id, text: 'Stale overwrite' }] },
   });
   assert.equal(stale.isError, true, 'stale destructive updates are reported as MCP tool errors');
-  const oldLabel = board.elements.find(e => e.containerId === first.id);
+  const oldLabel = app.store.read(boardId).elements.find(e => e.containerId === first.id);
   const moved = resultData(await client.callTool({ name: 'update_elements', arguments: {
     boardId, expectedRevision: board.revision, updates: [{ id: first.id, x: first.x + 100, y: first.y + 50 }],
   } }));
-  const movedLabel = moved.elements.find(e => e.id === oldLabel.id);
+  assert.equal(moved.elements, undefined, 'writes return a small ack, not the board');
+  const movedLabel = app.store.read(boardId).elements.find(e => e.id === oldLabel.id);
   assert.equal(movedLabel.x, oldLabel.x + 100);
   assert.equal(movedLabel.y, oldLabel.y + 50);
 
@@ -183,4 +184,47 @@ test('read_board leaves out image data and AI edits use random nonces', async t 
   resultData(await client.callTool({ name: 'connect_elements', arguments: { boardId, fromId: a.id, toId: b.id } }));
   const edited = app.store.read(boardId).elements.find(e => e.id === a.id);
   assert.notEqual(edited.versionNonce, 0, 'a fixed nonce of 0 would always win ties against human edits');
+});
+
+test('add_elements creates nodes and arrows in one call; read_board is compact', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'brainwriting-mcp-batch-'));
+  const app = createWorkspaceServer({ directory, ownerKey, host: '127.0.0.1', port: 0 });
+  const baseUrl = await app.listen();
+  const mcp = createMcpServer({ baseUrl, ownerKey });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'batch-test-client', version: '1.0.0' });
+  t.after(async () => { await client.close(); await mcp.close(); await app.close(); await rm(directory, { recursive: true, force: true }); });
+  await mcp.connect(serverTransport);
+  await client.connect(clientTransport);
+  const { id: boardId } = resultData(await client.callTool({ name: 'create_board', arguments: { name: 'Batch', template: 'blank' } }));
+  const first = resultData(await client.callTool({ name: 'add_elements', arguments: { boardId, items: [{ type: 'note', text: 'Old' }] } }));
+  assert.equal(first.ids.length, 1);
+  assert.equal(typeof first.revision, 'number');
+  const added = resultData(await client.callTool({ name: 'add_elements', arguments: { boardId,
+    items: [{ type: 'rectangle', text: 'A' }, { type: 'diamond', text: 'B' }],
+    connections: [{ from: 0, to: 1 }, { from: first.ids[0], to: 0 }] } }));
+  assert.equal(added.ids.length, 2);
+  assert.equal(added.arrowIds.length, 2);
+  assert.equal(added.elements, undefined, 'ack, not the board');
+
+  const stored = app.store.read(boardId).elements;
+  const [a, b] = added.ids.map(id => stored.find(e => e.id === id));
+  assert.deepEqual(a.boundElements.filter(x => x.type === 'arrow').map(x => x.id).sort(), [...added.arrowIds].sort(), 'A is bound to both arrows');
+  assert.ok(b.boundElements.some(x => x.id === added.arrowIds[0]));
+  const old = stored.find(e => e.id === first.ids[0]);
+  assert.ok(old.boundElements.some(x => x.id === added.arrowIds[1]), 'existing node gets the arrow binding');
+  assert.equal(old.version, 2);
+
+  resultData(await client.callTool({ name: 'update_elements', arguments: { boardId, expectedRevision: app.store.read(boardId).revision, updates: [{ id: first.ids[0], isDeleted: true }] } }));
+  const board = resultData(await client.callTool({ name: 'read_board', arguments: { boardId } }));
+  assert.ok(!board.elements.some(e => e.id === first.ids[0]), 'deleted elements are left out');
+  assert.ok(!board.elements.some(e => e.type === 'text'), 'bound labels fold into their shapes');
+  const readA = board.elements.find(e => e.id === a.id);
+  assert.equal(readA.text, 'A');
+  assert.equal(readA.seed, undefined, 'render-only fields are dropped');
+  const arrow = board.elements.find(e => e.id === added.arrowIds[0]);
+  assert.deepEqual([arrow.from, arrow.to], [a.id, b.id]);
+
+  const bad = await client.callTool({ name: 'add_elements', arguments: { boardId, items: [{ type: 'note', text: 'C' }], connections: [{ from: 0, to: 'missing-id' }] } });
+  assert.equal(bad.isError, true, 'unknown connection ends are rejected');
 });
