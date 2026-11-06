@@ -4,7 +4,7 @@ export type Element = Record<string, any> & { id: string; version: number; versi
 export type Board = {
   id: string; name: string; revision: number; elements: Element[]; files: Record<string, any>; background: string;
   brief: string; messages: { id: string; author: string; text: string; createdAt: number }[];
-  session: { phase: 'diverge' | 'converge'; hmw: string; criteria: string; decision: string; deadline: number | null };
+  session: { phase: 'diverge' | 'converge'; hmw: string; criteria: string; decision: string };
   focus: { elementIds: string[]; instruction: string } | null; votes: Record<string, string[]>;
 }
 
@@ -53,6 +53,8 @@ export class LiveBoard {
   }
   accept(board: Board) {
     if (this.board && board.revision < this.board.revision) return
+    // The server sends each image once, so keep files from earlier updates.
+    board = { ...board, files: { ...this.board?.files, ...board.files } }
     this.board = board
     this.receive({ ...board, elements: mergeElements(board.elements, [...this.pending.values()]), files: { ...board.files, ...this.files }, background: this.background ?? board.background })
   }

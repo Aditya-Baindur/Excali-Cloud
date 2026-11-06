@@ -6,7 +6,9 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist node_modules (
+rem Reinstall when package-lock.json is newer than the last install, for example after a pull.
+node -e "const f=require('fs');try{process.exit(f.statSync('package-lock.json').mtimeMs>f.statSync('node_modules/.package-lock.json').mtimeMs?1:0)}catch{process.exit(1)}"
+if errorlevel 1 (
   call npm ci
   if errorlevel 1 goto failed
 )

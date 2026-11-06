@@ -1,7 +1,7 @@
 # Local collaborative brainwriting
 
 ## Intent and authorization
-Esteban asked to plan then build on the existing `night-crew` branch. Build a usable local visual thinking partner for Night Crew: humans and an existing MCP-capable AI develop features, systems and architecture together. No separate AI subscription, public deployment, fork or upstream push is authorized or needed.
+The user asked to plan then build on the existing `night-crew` branch. Build a usable local visual thinking partner for Night Crew: humans and an existing MCP-capable AI develop features, systems and architecture together. No separate AI subscription, public deployment, fork or upstream push is authorized or needed.
 
 ## Ground
 - Baseline: `517af8d`; clean `night-crew` branch, Node 24.18.0, npm 11.16.0 verified from the tools.
@@ -32,7 +32,7 @@ Local exports are editable `.excalidraw` snapshots plus a full JSON workspace ba
 6. Build, tests and actual browser desktop/mobile checks pass. Existing root tests still pass. No claim of internet/team access unless separately tested.
 
 ## Boundaries
-No autonomous built-in model, Miro backend extraction, public hosting, automatic tunnel, GitHub sync, video-editor modifications, or changes to Esteban's private vault. Team remote use requires a reachable host; OS firewall and network routing are external prerequisites. User explicitly selected branch name `night-crew`.
+No autonomous built-in model, Miro backend extraction, public hosting, automatic tunnel, GitHub sync or video-editor modifications. Team remote use requires a reachable host; OS firewall and network routing are external prerequisites. User explicitly selected branch name `night-crew`.
 
 ## Visual choices
 Retain Excalidraw's drawing experience. Surrounding chrome uses white/slate with a restrained violet accent, system typography, a compact board navigator and a readable brief. No unrelated personal brand palette. Keep controls keyboard accessible and collapse panels on small screens.

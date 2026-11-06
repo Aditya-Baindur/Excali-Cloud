@@ -174,3 +174,27 @@ test('two live clients retain independent element patches and restart restores a
   assert.ok(restored.elements.some(element => element.id === leftShape.id));
   assert.ok(restored.elements.some(element => element.id === rightShape.id));
 });
+
+test('images go to each socket once and patch responses carry no image data', async t => {
+  const { baseUrl } = await setup(t);
+  const board = await json(await fetch(`${baseUrl}/api/boards`, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ name: 'Images', template: 'blank' }) }));
+  const files = { image1: { id: 'image1', mimeType: 'image/png', dataURL: 'data:image/png;base64,aGVsbG8=', created: 1 } };
+  const patch = body => fetch(`${baseUrl}/api/boards/${board.id}/patch`, { method: 'POST', headers: ownerHeaders, body: JSON.stringify(body) }).then(json);
+  const socket = new WebSocket(wsUrl(baseUrl, board.id), { headers: { authorization: ownerHeaders.authorization, origin: baseUrl } });
+  t.after(() => socket.close());
+  await nextBoard(socket);
+  const withImage = nextBoard(socket, b => b.revision === 1);
+  assert.deepEqual((await patch({ files })).files, {});
+  assert.equal((await withImage).files.image1.dataURL, files.image1.dataURL);
+  const later = nextBoard(socket, b => b.revision === 2);
+  await patch({ brief: 'Next' });
+  assert.deepEqual((await later).files, {}, 'an image already sent is not sent again');
+});
+
+test('malformed percent-encoding is a 404, not a server error', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'brainwriting-static-'));
+  const app = createWorkspaceServer({ directory, ownerKey, host: '127.0.0.1', port: 0, staticDirectory: directory });
+  const baseUrl = await app.listen();
+  t.after(async () => { await app.close(); await rm(directory, { recursive: true, force: true }); });
+  assert.equal((await fetch(`${baseUrl}/%E0%A4%A`)).status, 404);
+});

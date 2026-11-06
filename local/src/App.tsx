@@ -137,7 +137,6 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
   const [author, setAuthor] = useState(safeGet('night-crew-name') ?? 'Teammate')
   const [aiRequest, setAiRequest] = useState('')
   const [shareLink, setShareLink] = useState('')
-  const [now, setNow] = useState(Date.now())
   const [drafts, setDrafts] = useState<string[]>(() => {
     try { return JSON.parse(safeGet(`drafts:${boardId}`) ?? '["","",""]') } catch { return ['', '', ''] }
   })
@@ -169,8 +168,7 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     }
     const warning = (event: BeforeUnloadEvent) => { if (connection.dirty() || document.querySelector('.editable-text[data-dirty="true"]')) { event.preventDefault(); event.returnValue = '' } }
     window.addEventListener('beforeunload', warning)
-    const clock = setInterval(() => setNow(Date.now()), 1000)
-    return () => { beforeOpen.current = async () => {}; connection.close(); clearInterval(clock); window.removeEventListener('beforeunload', warning) }
+    return () => { beforeOpen.current = async () => {}; connection.close(); window.removeEventListener('beforeunload', warning) }
   }, [boardId])
   useEffect(() => { apiRef.current = api; if (api && latest.current) renderBoard(latest.current) }, [api])
   useEffect(() => safeSet(`drafts:${boardId}`, JSON.stringify(drafts)), [drafts, boardId])
@@ -261,10 +259,22 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     const value = Math.max(0.1, Math.min(30, state.zoom.value * factor)) as typeof state.zoom.value
     canvas.updateScene({ appState: { zoom: { value }, scrollX: state.width / (2 * value) - center.x, scrollY: state.height / (2 * value) - center.y }, captureUpdate: CaptureUpdateAction.NEVER })
   }
-  async function divergeSelection(ids = selectedIds) {
+  // Diverge and Converge are actions on the selection; each one also sets the board's phase.
+  const thinking = {
+    diverge: {
+      instruction: 'Diverge thinking: expand these ideas into distinct alternatives and connected systems. Preserve the originals. Do not rank or choose.',
+      prompt: (revision: number) => `Use the night-crew MCP server. Read board ${boardId}. Its focus.elementIds contains my selection. We are in divergent mode. Expand these selected ideas into several distinct possibilities; ask one question if the vision is unclear. Add connected notes and architecture beside the originals. Do not rank, pick a winner, or delete originals. Post your reasoning with post_message. Current revision: ${revision}.`,
+    },
+    converge: {
+      instruction: 'Converge: group these ideas, compare them against the team criteria, and surface assumptions and tradeoffs. Do not pick a winner, delete ideas or record a decision.',
+      prompt: (revision: number) => `Use the night-crew MCP server. Read board ${boardId}. Its focus.elementIds contains my selection. We are in convergent mode. Group similar selected ideas, compare them against our criteria (ask for criteria first if the board has none), and name each idea's key assumptions and tradeoffs. Do not pick a winner, delete ideas, or record a decision; we decide out loud. Post your comparison with post_message. Current revision: ${revision}.`,
+    },
+  }
+  async function thinkAbout(phase: 'diverge' | 'converge', ids = selectedIds) {
     if (!ids.length) throw new Error('Select an idea or a section on the canvas first')
-    const next = await patch({ session: { phase: 'diverge' }, focus: { elementIds: ids, instruction: 'Diverge thinking: expand these ideas into distinct alternatives and connected systems. Preserve the originals. Do not rank or choose.' } })
-    const prompt = `Use the night-crew MCP server. Read board ${boardId}. Its focus.elementIds contains my selection. We are in divergent mode. Expand these selected ideas into several distinct possibilities; ask one question if the vision is unclear. Add connected notes and architecture beside the originals. Do not rank, pick a winner, or delete originals. Post your reasoning with post_message. Current revision: ${next.revision}.`
+    const mode = thinking[phase]
+    const next = await patch({ session: { phase }, focus: { elementIds: ids, instruction: mode.instruction } })
+    const prompt = mode.prompt(next.revision)
     setAiRequest(prompt); setPanel('ai'); setPanelOpen(true)
     try { await navigator.clipboard.writeText(prompt); setStatus('Selection saved · AI request copied') }
     catch { setStatus('Selection saved · copy the request from AI partner') }
@@ -283,14 +293,14 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
     download(`${current.name.replace(/[^a-zA-Z0-9 _-]/g, '') || 'board'}.excalidraw`, serializeAsJSON(canvas.getSceneElementsIncludingDeleted(), canvas.getAppState(), canvas.getFiles(), 'local'))
   }
   const chosen = board?.elements.filter(e => selectedIds.includes(e.id) && !e.isDeleted) ?? []
-  const remaining = board?.session.deadline ? Math.max(0, Math.ceil((board.session.deadline - now) / 1000)) : null
   const totalVotes = (id: string) => Object.values(board?.votes ?? {}).filter(votes => votes.includes(id)).length
 
   return <DraftBoard.Provider value={boardId}><main className="board-workspace">
     <div className="board-toolbar">
-      <div className="board-heading"><h1>{board?.name ?? 'Opening board…'}</h1><span className="save-status" role="status">{status}</span></div>
+      <div className="board-heading"><h1>{board?.name ?? 'Opening board…'}</h1>{board && <span className={`phase-chip ${board.session.phase}`}>{board.session.phase === 'converge' ? 'Converging' : 'Exploring'}{board.session.phase === 'converge' && <button className="text-button" onClick={() => void action(() => patch({ session: { phase: 'diverge' } }))}>Back to exploring</button>}</span>}<span className="save-status" role="status">{status}</span></div>
       <div className="board-actions">
-        <button className="diverge-button" disabled={!selectedIds.length} onClick={() => void action(divergeSelection)} title="Select an idea, then explore alternatives with AI">✧ Diverge thinking{selectedIds.length ? ` (${selectedIds.length})` : ''}</button>
+        <button className="diverge-button" disabled={!selectedIds.length} onClick={() => void action(() => thinkAbout('diverge'))} title="Select ideas, then explore alternatives with AI">✧ Diverge thinking{selectedIds.length ? ` (${selectedIds.length})` : ''}</button>
+        <button className="converge-button" disabled={!selectedIds.length} onClick={() => void action(() => thinkAbout('converge'))} title="Select ideas, then compare them with AI">◎ Converge{selectedIds.length ? ` (${selectedIds.length})` : ''}</button>
         <button onClick={() => void action(exportScene)}>Export</button>
         {viewer.role === 'owner' && <button onClick={() => void action(copyInvite)}>Share</button>}
         <button aria-expanded={panelOpen} onClick={() => setPanelOpen(!panelOpen)}>{panelOpen ? 'Hide panel' : 'Open panel'}</button>
@@ -313,10 +323,10 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
           stickyPosition.current = contextPosition.current
           api.updateScene({ appState: { contextMenu: null }, captureUpdate: CaptureUpdateAction.NEVER })
           setStickyOpen(true)
-        }} onDiverge={() => {
+        }} onThink={phase => {
           const ids = Object.keys(api.getAppState().selectedElementIds)
           api.updateScene({ appState: { contextMenu: null }, captureUpdate: CaptureUpdateAction.NEVER })
-          void action(() => divergeSelection(ids))
+          void action(() => thinkAbout(phase, ids))
         }} />}
       </div>
       {panelOpen && board && <aside ref={panelRoot} id="thinking-panel" className="thinking-panel" aria-label="Thinking tools" style={{ '--panel-width': `${panelWidth}px` } as React.CSSProperties}>
@@ -349,11 +359,7 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
         <div className="panel-tabs" role="tablist">{[['session', 'Session'], ['drafts', 'Private drafts'], ['ai', 'AI partner']].map(([id, label]) => <button key={id} role="tab" aria-selected={panel === id} onClick={() => setPanel(id)}>{label}</button>)}</div>
         <div className="panel-content" role="tabpanel">
           {panel === 'session' && <>
-            <div className="phase-control" aria-label="Thinking phase">{(['diverge', 'converge'] as const).map(phase => <button key={phase} className={board.session.phase === phase ? 'chosen' : ''} onClick={() => void action(() => patch({ session: { phase } }))}>{phase === 'diverge' ? 'Diverge' : 'Converge'}</button>)}</div>
-            <p className="phase-help">{board.session.phase === 'diverge' ? 'Explore possibilities. Write privately first, then reveal and build on ideas. Save judgment for later.' : 'Compare ideas against your criteria. Each person has three votes. Record what you choose and what needs testing.'}</p>
             {board.session.phase === 'diverge' ? <>
-              <div className="timer-row"><strong>Crazy 8s</strong><span>{remaining === null ? '8 ideas in 8 minutes' : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`}</span><button onClick={() => void action(() => patch({ session: { deadline: remaining === null ? Date.now() + 480000 : null } }))}>{remaining === null ? 'Start timer' : 'Clear'}</button></div>
-              <button className="text-button" onClick={() => { setDrafts(d => [...d, ...Array(Math.max(0, 8 - d.length)).fill('')]); setPanel('drafts') }}>Open eight private idea slots</button>
               <label htmlFor="add-note">Add a shared idea</label><textarea id="add-note" value={note} onChange={e => setNote(e.target.value)} placeholder="An idea worth exploring…" maxLength={10000} />
               <button disabled={!note.trim()} onClick={() => void action(async () => { await addNotes([note.trim()]); setNote('') })}>Add idea to canvas</button>
             </> : <>
@@ -371,7 +377,7 @@ function BoardWorkspace({ boardId, viewer, beforeOpen }: { boardId: string; view
           {panel === 'ai' && <>
             <h2>A thinking partner on your board.</h2><p>Connect your AI chat through MCP, then ask it to read this board. It can add notes, connect ideas and map the architecture.</p>
             <details><summary>Connect your AI</summary><p>Run <code>node local/server/mcp.mjs</code> as a stdio MCP server from this repository. The local README has the full configuration. Keep the workspace running.</p><p>No model runs inside this page. Your existing AI chat does the thinking.</p></details>
-            <button className="primary" disabled={!selectedIds.length} onClick={() => void action(divergeSelection)}>✧ Diverge thinking</button><p className="subtle">Select an idea or section on the canvas first.</p>
+            <button className="primary" disabled={!selectedIds.length} onClick={() => void action(() => thinkAbout('diverge'))}>✧ Diverge thinking</button><p className="subtle">Select an idea or section on the canvas first.</p>
             <label htmlFor="ai-request">Request for your AI chat</label><textarea id="ai-request" className="ai-request" value={aiRequest || `Use the night-crew MCP server. Read board ${boardId} and its current phase. Help us develop our vision, ask about missing context, and build on the canvas. Preserve the original ideas.`} onChange={e => setAiRequest(e.target.value)} />
             <button onClick={() => void action(async () => { await navigator.clipboard.writeText(aiRequest || `Use the night-crew MCP server. Read board ${boardId} and help us brainstorm according to its current session phase.`); setStatus('AI request copied') })}>Copy request</button>
             <h3>Shared discussion</h3><div className="discussion" aria-live="polite">{board.messages.length === 0 ? <p className="subtle">Questions and real AI replies can stay with the board.</p> : board.messages.map(m => <article key={m.id}><strong>{m.author}</strong><p>{m.text}</p></article>)}</div>
@@ -414,7 +420,7 @@ function DrawingStickyTool({ root, onAdd }: { root: React.RefObject<HTMLDivEleme
   return host ? createPortal(<button className="sticky-tool" aria-label="Sticky note" title="Sticky note" onClick={onAdd}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v10l-6 6H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M15 21v-4a2 2 0 0 1 2-2h4M7 8h10M7 12h6"/></svg></button>, host) : null
 }
 
-function CanvasContextActions({ menu, root, enabled, onAddSticky, onDiverge }: { menu: AppState['contextMenu']; root: React.RefObject<HTMLDivElement | null>; enabled: boolean; onAddSticky: () => void; onDiverge: () => void }) {
+function CanvasContextActions({ menu, root, enabled, onAddSticky, onThink }: { menu: AppState['contextMenu']; root: React.RefObject<HTMLDivElement | null>; enabled: boolean; onAddSticky: () => void; onThink: (phase: 'diverge' | 'converge') => void }) {
   const [host, setHost] = useState<HTMLElement | null>(null)
   // Excalidraw 0.18.1 has no custom-menu prop. Keep its hit testing and commands;
   // portal only our rows into its menu. Recheck this selector when upgrading it.
@@ -433,7 +439,7 @@ function CanvasContextActions({ menu, root, enabled, onAddSticky, onDiverge }: {
     popover.style.left = `${parseFloat(popover.style.left || '0') + dx}px`
     popover.style.top = `${parseFloat(popover.style.top || '0') + dy}px`
   }, [host, enabled])
-  return menu && host ? createPortal(<><li className="diverge-context-row"><button type="button" className="context-menu-item" onClick={onAddSticky}><span className="context-menu-item__label">Add sticky note</span></button></li>{enabled && <li><button type="button" aria-label="Diverge thinking" className="context-menu-item" onClick={onDiverge}><span className="context-menu-item__label">✧ Diverge thinking</span></button></li>}</>, host) : null
+  return menu && host ? createPortal(<><li className="diverge-context-row"><button type="button" className="context-menu-item" onClick={onAddSticky}><span className="context-menu-item__label">Add sticky note</span></button></li>{enabled && <><li><button type="button" aria-label="Diverge thinking" className="context-menu-item" onClick={() => onThink('diverge')}><span className="context-menu-item__label">✧ Diverge thinking</span></button></li><li><button type="button" aria-label="Converge these" className="context-menu-item" onClick={() => onThink('converge')}><span className="context-menu-item__label">◎ Converge these</span></button></li></>}</>, host) : null
 }
 
 function EditableText({ label, value, placeholder, save }: { label: string; value: string; placeholder: string; save: (value: string) => Promise<unknown> }) {

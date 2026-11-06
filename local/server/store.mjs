@@ -90,7 +90,7 @@ export class BoardStore extends EventEmitter {
     return this.save({
       id: randomUUID(), name: name.trim(), revision: 0, updatedAt: Date.now(),
       elements: template === 'brainwriting' ? brainwritingElements() : [], files: {}, background: '#ffffff',
-      brief: '', messages: [], session: { phase: 'diverge', hmw: '', criteria: '', decision: '', deadline: null },
+      brief: '', messages: [], session: { phase: 'diverge', hmw: '', criteria: '', decision: '' },
       focus: null, votes: {},
     })
   }
@@ -115,8 +115,7 @@ export class BoardStore extends EventEmitter {
       const s = patch.session
       if (s.phase !== undefined && !['diverge', 'converge'].includes(s.phase)) fail('Invalid phase')
       for (const k of ['hmw', 'criteria', 'decision']) if (s[k] !== undefined) text(s[k], 10000, k)
-      if (s.deadline !== undefined && s.deadline !== null && (!Number.isSafeInteger(s.deadline) || s.deadline < 0)) fail('Invalid deadline')
-      for (const k of ['phase', 'hmw', 'criteria', 'decision', 'deadline']) if (s[k] !== undefined) board.session[k] = s[k]
+      for (const k of ['phase', 'hmw', 'criteria', 'decision']) if (s[k] !== undefined) board.session[k] = s[k]
     }
     if (patch.focus !== undefined) {
       if (!patch.focus || !Array.isArray(patch.focus.elementIds) || patch.focus.elementIds.length > 100) fail('Select up to 100 elements')
@@ -146,10 +145,11 @@ export class BoardStore extends EventEmitter {
     const source = data.format === 'excali-cloud-local' && data.version === 1 ? data.board : data
     if (!source || typeof source !== 'object') fail('Invalid backup')
     validateElements(source.elements); validateFiles(source.files ?? {})
-    const session = { phase: 'diverge', hmw: '', criteria: '', decision: '', deadline: null, ...source.session }
+    // Copy only known fields; older backups may still carry a Crazy 8s deadline.
+    const saved = source.session && typeof source.session === 'object' ? source.session : {}
+    const session = { phase: saved.phase ?? 'diverge', hmw: saved.hmw ?? '', criteria: saved.criteria ?? '', decision: saved.decision ?? '' }
     if (!['diverge', 'converge'].includes(session.phase)) fail('Invalid phase')
     for (const key of ['hmw', 'criteria', 'decision']) text(session[key], 10000, key)
-    if (session.deadline !== null && (!Number.isSafeInteger(session.deadline) || session.deadline < 0)) fail('Invalid deadline')
     const messages = source.messages ?? []
     if (!Array.isArray(messages) || messages.length > 2000) fail('Invalid discussion')
     for (const message of messages) {

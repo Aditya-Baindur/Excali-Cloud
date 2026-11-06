@@ -3,7 +3,7 @@ export function wins(candidate, current) {
     (candidate.version === current.version && candidate.versionNonce < current.versionNonce)
 }
 
-const nonce = () => Math.floor(Math.random() * 2147483647)
+export const nonce = () => Math.floor(Math.random() * 2147483647)
 export const STICKY_SIZE = { width: 240, height: 155 }
 export function uid() {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))

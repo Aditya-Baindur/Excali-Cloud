@@ -19,7 +19,9 @@ export function createWorkspaceServer({ directory, ownerKey, host = '127.0.0.1',
   const inviteToken = boardId => sign(`invite:${validId(boardId)}`)
   const cookieName = () => `excali_session_${server.address()?.port ?? port}`
   const allowedHosts = new Set(['localhost', '127.0.0.1', '[::1]', host, hostname().toLowerCase()])
-  for (const values of Object.values(networkInterfaces())) for (const address of values ?? []) allowedHosts.add(address.address)
+  // URL.hostname keeps IPv6 brackets, so store IPv6 addresses the same way.
+  for (const values of Object.values(networkInterfaces())) for (const address of values ?? [])
+    allowedHosts.add(address.family === 'IPv6' || address.family === 6 ? `[${address.address}]` : address.address)
 
   function checkRequest(req) {
     let url
@@ -76,13 +78,20 @@ export function createWorkspaceServer({ directory, ownerKey, host = '127.0.0.1',
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' })
     res.end(JSON.stringify(data))
   }
+  // Images are sent once per socket; later updates carry only files that socket hasn't received.
+  function boardMessage(board, socket) {
+    const files = Object.fromEntries(Object.entries(board.files).filter(([fileId]) => !socket.sentFiles.has(fileId)))
+    for (const fileId of Object.keys(files)) socket.sentFiles.add(fileId)
+    return JSON.stringify({ type: 'board', board: { ...board, files } })
+  }
   function broadcast(id) {
-    const data = JSON.stringify({ type: 'board', board: store.read(id) })
+    const board = store.read(id)
     for (const socket of wss.clients) if (socket.boardId === id && socket.readyState === WebSocket.OPEN) {
       if (socket.bufferedAmount > LIMIT * 2) socket.close(1013, 'Reconnect to receive the latest board')
-      else socket.send(data)
+      else socket.send(boardMessage(board, socket))
     }
   }
+  const withoutFiles = board => ({ ...board, files: {} })
   store.on('change', broadcast)
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -125,9 +134,9 @@ export function createWorkspaceServer({ directory, ownerKey, host = '127.0.0.1',
         const [, id, operation] = match; validId(id)
         const session = authorize(req, id)
         if (!operation && req.method === 'GET') return json(res, store.read(id))
-        if (operation === 'patch' && req.method === 'POST') return json(res, store.patch(id, await body(req)))
+        if (operation === 'patch' && req.method === 'POST') return json(res, withoutFiles(store.patch(id, await body(req))))
         if (operation === 'invite' && req.method === 'POST') { owner(req); store.read(id); return json(res, { token: inviteToken(id) }) }
-        if (operation === 'vote' && req.method === 'POST') return json(res, store.vote(id, session.voterId, (await body(req)).elementId))
+        if (operation === 'vote' && req.method === 'POST') return json(res, withoutFiles(store.vote(id, session.voterId, (await body(req)).elementId)))
         if (operation === 'backup' && req.method === 'GET') {
           res.setHeader('Content-Disposition', 'attachment; filename="workspace-backup.json"')
           return json(res, { format: 'excali-cloud-local', version: 1, board: store.read(id) })
@@ -136,7 +145,9 @@ export function createWorkspaceServer({ directory, ownerKey, host = '127.0.0.1',
       if (path.startsWith('/api/') || path.startsWith('/live/')) throw new WorkspaceError('Not found', 404)
       if (frontend) return frontend(req, res)
       if (!staticDirectory) throw new WorkspaceError('Build the local app first with npm run build', 503)
-      const file = resolve(staticDirectory, `.${decodeURIComponent(path)}`)
+      let decoded
+      try { decoded = decodeURIComponent(path) } catch { throw new WorkspaceError('Not found', 404) }
+      const file = resolve(staticDirectory, `.${decoded}`)
       if (!file.startsWith(resolve(staticDirectory) + sep) && file !== resolve(staticDirectory)) throw new WorkspaceError('Not found', 404)
       const target = extname(path) && existsSync(file) ? file : resolve(staticDirectory, 'index.html')
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new WorkspaceError('Method not allowed', 405)
@@ -155,10 +166,10 @@ export function createWorkspaceServer({ directory, ownerKey, host = '127.0.0.1',
       if (!match) throw new WorkspaceError('Not found', 404)
       const id = validId(match[1]); authorize(req, id); const board = store.read(id)
       wss.handleUpgrade(req, socket, head, ws => {
-        ws.boardId = id; ws.alive = true
+        ws.boardId = id; ws.alive = true; ws.sentFiles = new Set()
         ws.on('pong', () => { ws.alive = true })
         ws.on('error', () => {})
-        ws.send(JSON.stringify({ type: 'board', board }))
+        ws.send(boardMessage(board, ws))
       })
     } catch { socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n') }
   })

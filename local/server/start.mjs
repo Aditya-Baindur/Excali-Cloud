@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, openSync, closeSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { spawn } from 'node:child_process'
 import { loadLocalConfig, localRoot } from './config.mjs'
@@ -13,9 +13,9 @@ function openBrowser(url) {
 mkdirSync(config.directory, { recursive: true })
 const lock = resolve(config.directory, '.server.lock')
 if (existsSync(lock)) {
-  const pid = Number(readFileSync(lock, 'utf8'))
+  // Ask the workspace itself: Windows reuses process IDs, so a live PID can belong to another program.
   let alive = false
-  try { process.kill(pid, 0); alive = true } catch (error) { if (error.code !== 'ESRCH') alive = true }
+  try { await fetch(`${config.baseUrl}/api/session`, { signal: AbortSignal.timeout(1500) }); alive = true } catch { /* nothing is listening */ }
   if (alive) {
     if (process.argv.includes('--open')) { openBrowser(config.baseUrl); process.exit(0) }
     throw new Error('This workspace already has a running server. Open its existing URL instead.')

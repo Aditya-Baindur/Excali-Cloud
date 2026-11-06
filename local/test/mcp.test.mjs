@@ -163,3 +163,24 @@ test('real MCP client edits the board seen by a live observer and stale writes f
   assert.match(convergentText, /converg|vote|decide/);
   assert.notEqual(divergentText, convergentText, 'brainstorm prompt adapts to the active session phase');
 });
+
+test('read_board leaves out image data and AI edits use random nonces', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'brainwriting-mcp-files-'));
+  const app = createWorkspaceServer({ directory, ownerKey, host: '127.0.0.1', port: 0 });
+  const baseUrl = await app.listen();
+  const mcp = createMcpServer({ baseUrl, ownerKey });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'files-test-client', version: '1.0.0' });
+  t.after(async () => { await client.close(); await mcp.close(); await app.close(); await rm(directory, { recursive: true, force: true }); });
+  await mcp.connect(serverTransport);
+  await client.connect(clientTransport);
+  const { id: boardId } = resultData(await client.callTool({ name: 'create_board', arguments: { name: 'Files', template: 'blank' } }));
+  app.store.patch(boardId, { files: { image1: { id: 'image1', mimeType: 'image/png', dataURL: 'data:image/png;base64,aGVsbG8=', created: 1 } } });
+  resultData(await client.callTool({ name: 'add_elements', arguments: { boardId, items: [{ type: 'note', text: 'A' }, { type: 'note', text: 'B' }] } }));
+  const board = resultData(await client.callTool({ name: 'read_board', arguments: { boardId } }));
+  assert.deepEqual(board.files, { image1: { mimeType: 'image/png' } });
+  const [a, b] = board.elements.filter(e => e.type === 'rectangle');
+  resultData(await client.callTool({ name: 'connect_elements', arguments: { boardId, fromId: a.id, toId: b.id } }));
+  const edited = app.store.read(boardId).elements.find(e => e.id === a.id);
+  assert.notEqual(edited.versionNonce, 0, 'a fixed nonce of 0 would always win ties against human edits');
+});

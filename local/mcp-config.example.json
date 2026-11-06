@@ -2,7 +2,7 @@
   "mcpServers": {
     "night-crew": {
       "command": "node",
-      "args": ["C:/Users/esteb/Dev/ai-workspace/Agentic Workflows/Excali-Cloud/local/server/mcp.mjs"]
+      "args": ["/absolute/path/to/Excali-Cloud/local/server/mcp.mjs"]
     }
   }
 }
