@@ -5,6 +5,11 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "local:install": "npm --prefix local ci",
+    "local:build": "npm --prefix local run build",
+    "local:start": "npm --prefix local start",
+    "local:dev": "npm --prefix local run dev",
+    "local:mcp:setup": "node local/server/setup-mcp.mjs",
     "build": "pnpm --dir frontend install --frozen-lockfile && pnpm --dir frontend run build:cloudflare",
     "deploy": "node scripts/deploy-cloudflare.mjs",
     "deploy:check": "node scripts/deploy-cloudflare.mjs --dry-run",

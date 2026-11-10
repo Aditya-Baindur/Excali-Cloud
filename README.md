@@ -2,6 +2,8 @@
 
 A persistent Excalidraw workspace built with Next.js, Clerk, Cloudflare Workers, D1, and R2.
 
+**Night Crew local mode:** open `Start Night Crew.cmd` on Windows, or follow [the local workspace guide](local/README.md). This branch adds local files, live collaboration, brainwriting phases and an MCP thinking partner alongside the Cloudflare app below.
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2FAditya-Baindur%2Fdraw.adityabaindur.dev)
 
 Deploy the **entire application** from the repository root: the Next.js frontend and API run in one Worker, with a new D1 database and R2 bucket in your account. The deploy step creates the database tables automatically.
